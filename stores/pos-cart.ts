@@ -2,15 +2,17 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import type { ParkedSale, PosCartItem, Product } from "@/types";
+import type { ParkedSale, PosCartItem, Product, SaleDiscount } from "@/types";
 
 interface PosCartState {
   items: PosCartItem[];
   parkedSales: ParkedSale[];
+  discount: SaleDiscount | null;
   addProduct: (product: Product) => void;
   setQuantity: (productId: string, quantity: number) => void;
   removeProduct: (productId: string) => void;
   clearCart: () => void;
+  setDiscount: (discount: SaleDiscount | null) => void;
   parkCart: (label?: string) => void;
   resumeParkedSale: (id: string) => void;
   deleteParkedSale: (id: string) => void;
@@ -21,6 +23,7 @@ export const usePosCart = create<PosCartState>()(
     (set) => ({
       items: [],
       parkedSales: [],
+      discount: null,
       addProduct: (product) =>
         set((state) => {
           const existing = state.items.find((item) => item.product_id === product.id);
@@ -61,7 +64,8 @@ export const usePosCart = create<PosCartState>()(
         set((state) => ({
           items: state.items.filter((item) => item.product_id !== productId),
         })),
-      clearCart: () => set({ items: [] }),
+      clearCart: () => set({ items: [], discount: null }),
+      setDiscount: (discount) => set({ discount }),
       parkCart: (label) =>
         set((state) => {
           if (state.items.length === 0) {
@@ -73,10 +77,12 @@ export const usePosCart = create<PosCartState>()(
             label: label?.trim() || `Parked sale ${state.parkedSales.length + 1}`,
             parked_at: new Date().toISOString(),
             items: state.items,
+            discount: state.discount,
           };
 
           return {
             items: [],
+            discount: null,
             parkedSales: [parkedSale, ...state.parkedSales],
           };
         }),
@@ -90,6 +96,7 @@ export const usePosCart = create<PosCartState>()(
 
           return {
             items: parkedSale.items,
+            discount: parkedSale.discount ?? null,
             parkedSales: state.parkedSales.filter((sale) => sale.id !== id),
           };
         }),

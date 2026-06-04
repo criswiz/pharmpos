@@ -14,7 +14,20 @@ import {
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase/client";
 import { allocateFefoStock, sellableFefoBatches } from "@/lib/utils/fefo";
-import type { Batch, PaymentMethod, PosCartItem, ReceiptData, ReceiptLine, SaleTransaction } from "@/types";
+import type {
+  Batch,
+  PaymentMethod,
+  PaymentSplit,
+  PosCartItem,
+  ReceiptData,
+  ReceiptLine,
+  ReturnLine,
+  SaleDiscount,
+  SaleLineItem,
+  SaleReturn,
+  SaleTransaction,
+  SinglePaymentMethod,
+} from "@/types";
 
 interface SaleActor {
   uid: string;
@@ -27,6 +40,8 @@ interface CheckoutRetailSaleInput {
   batches: Batch[];
   payment_method: PaymentMethod;
   amount_tendered?: number;
+  payment_splits?: PaymentSplit[];
+  discount?: SaleDiscount | null;
 }
 
 export interface RetailSaleResult {
@@ -38,6 +53,14 @@ export interface RetailSaleResult {
 
 function money(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function computeDiscount(subtotal: number, discount: SaleDiscount | null | undefined): number {
+  if (!discount || discount.value <= 0) return 0;
+  const raw = discount.type === "pct"
+    ? subtotal * (discount.value / 100)
+    : discount.value;
+  return money(Math.min(raw, subtotal));
 }
 
 export async function checkoutRetailSale(
@@ -63,6 +86,7 @@ export async function checkoutRetailSale(
     const currentBatches = batchSnapshots
       .filter((snapshot) => snapshot.exists())
       .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }) as Batch);
+
     const saleLines: Array<{
       item: PosCartItem;
       batch: Batch;
@@ -94,12 +118,28 @@ export async function checkoutRetailSale(
       }
     }
 
-    const total = money(saleLines.reduce((sum, line) => sum + line.line_total, 0));
-    const tendered =
-      input.payment_method === "cash" ? money(input.amount_tendered ?? 0) : total;
+    const subtotal = money(saleLines.reduce((sum, line) => sum + line.line_total, 0));
+    const discountAmount = computeDiscount(subtotal, input.discount);
+    const total = money(subtotal - discountAmount);
 
-    if (input.payment_method === "cash" && tendered < total) {
-      throw new Error(`Cash received is below the sale total of GHS ${total.toFixed(2)}.`);
+    let amountTendered: number;
+    let change: number;
+    let paymentMethod: PaymentMethod;
+
+    if (input.payment_splits && input.payment_splits.length > 0) {
+      amountTendered = money(input.payment_splits.reduce((sum, s) => sum + s.amount, 0));
+      if (amountTendered < total) {
+        throw new Error(`Split payment total (GHS ${amountTendered.toFixed(2)}) is below the sale total of GHS ${total.toFixed(2)}.`);
+      }
+      change = money(amountTendered - total);
+      paymentMethod = "split";
+    } else {
+      paymentMethod = input.payment_method as SinglePaymentMethod;
+      amountTendered = paymentMethod === "cash" ? money(input.amount_tendered ?? 0) : total;
+      if (paymentMethod === "cash" && amountTendered < total) {
+        throw new Error(`Cash received is below the sale total of GHS ${total.toFixed(2)}.`);
+      }
+      change = money(amountTendered - total);
     }
 
     const quantityByBatch = new Map<string, number>();
@@ -157,24 +197,33 @@ export async function checkoutRetailSale(
       });
     }
 
-    const change = money(tendered - total);
     const itemCount = input.items.reduce((sum, item) => sum + item.quantity, 0);
 
-    transaction.set(saleRef, {
+    const saleDoc: Record<string, unknown> = {
       sale_date: serverTimestamp(),
       channel: "retail",
       status: "completed",
-      subtotal: total,
-      discount_total: 0,
+      subtotal,
+      discount_total: discountAmount,
       total,
-      payment_method: input.payment_method,
-      amount_tendered: tendered,
+      payment_method: paymentMethod,
+      amount_tendered: amountTendered,
       change,
       item_count: itemCount,
       line_count: saleLines.length,
       created_by: actor.uid,
       created_by_name_snapshot: actor.name,
-    });
+    };
+
+    if (input.payment_splits && input.payment_splits.length > 0) {
+      saleDoc.payment_splits = input.payment_splits;
+    }
+    if (input.discount && input.discount.value > 0) {
+      saleDoc.discount_type = input.discount.type;
+      saleDoc.discount_value = input.discount.value;
+    }
+
+    transaction.set(saleRef, saleDoc);
 
     transaction.set(doc(collection(db, "auditLogs")), {
       timestamp: serverTimestamp(),
@@ -186,7 +235,8 @@ export async function checkoutRetailSale(
       entity_id: saleRef.id,
       details: {
         total,
-        payment_method: input.payment_method,
+        discount_amount: discountAmount,
+        payment_method: paymentMethod,
         item_count: itemCount,
       },
     });
@@ -204,9 +254,12 @@ export async function checkoutRetailSale(
           line_total: line.line_total,
         }),
       ),
+      subtotal,
+      discount_amount: discountAmount,
       total,
-      payment_method: input.payment_method,
-      amount_tendered: tendered,
+      payment_method: paymentMethod,
+      payment_splits: input.payment_splits,
+      amount_tendered: amountTendered,
       change,
       item_count: itemCount,
     };
@@ -268,10 +321,118 @@ export async function getSaleReceipt(saleId: string): Promise<ReceiptData | null
     sale_date: saleDate,
     cashier_name: sale.created_by_name_snapshot,
     lines,
+    subtotal: sale.subtotal,
+    discount_amount: sale.discount_total ?? 0,
     total: sale.total,
     payment_method: sale.payment_method,
+    payment_splits: sale.payment_splits,
     amount_tendered: sale.amount_tendered,
     change: sale.change,
     item_count: sale.item_count,
   };
+}
+
+export async function getSaleLineItems(saleId: string): Promise<SaleLineItem[]> {
+  const db = getFirebaseDb();
+  const snap = await getDocs(
+    query(collection(db, "saleLineItems"), where("sale_id", "==", saleId)),
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as SaleLineItem);
+}
+
+export async function returnSaleItems(
+  originalSaleId: string,
+  returnLines: ReturnLine[],
+  refundMethod: SinglePaymentMethod,
+  notes: string,
+  actor: SaleActor,
+): Promise<SaleReturn["id"]> {
+  if (returnLines.length === 0) {
+    throw new Error("Select at least one item to return.");
+  }
+
+  const totalRefund = money(
+    returnLines.reduce((sum, line) => sum + line.line_total, 0),
+  );
+
+  const db = getFirebaseDb();
+  const returnRef = doc(collection(db, "saleReturns"));
+  const batchRefs = [...new Set(returnLines.map((l) => l.batch_id))].map((id) =>
+    doc(db, "batches", id),
+  );
+
+  await runTransaction(db, async (transaction) => {
+    const batchSnaps = await Promise.all(batchRefs.map((ref) => transaction.get(ref)));
+    const batchMap = new Map<string, Batch>();
+    for (const snap of batchSnaps) {
+      if (snap.exists()) {
+        batchMap.set(snap.id, { id: snap.id, ...snap.data() } as Batch);
+      }
+    }
+
+    const quantityByBatch = new Map<string, number>();
+    for (const line of returnLines) {
+      quantityByBatch.set(
+        line.batch_id,
+        (quantityByBatch.get(line.batch_id) ?? 0) + line.quantity_returned,
+      );
+    }
+
+    for (const [batchId, qty] of quantityByBatch) {
+      const batch = batchMap.get(batchId);
+      if (!batch || batch.status === "recalled") continue;
+
+      const quantityAfter = batch.quantity_remaining + qty;
+      transaction.update(doc(db, "batches", batchId), {
+        quantity_remaining: quantityAfter,
+        status: "active",
+      });
+
+      transaction.set(doc(collection(db, "stockTransactions")), {
+        batch_id: batchId,
+        product_id: batch.product_id,
+        product_name_snapshot: batch.product_name_snapshot,
+        batch_number_snapshot: batch.batch_number,
+        type: "return",
+        quantity_change: qty,
+        quantity_after: quantityAfter,
+        reason: `Return from sale ${originalSaleId.slice(-8).toUpperCase()}${notes ? ": " + notes : ""}`,
+        reference_type: "return",
+        reference_id: returnRef.id,
+        shop_context: batch.shop_context,
+        created_at: serverTimestamp(),
+        created_by: actor.uid,
+      });
+    }
+
+    transaction.set(returnRef, {
+      original_sale_id: originalSaleId,
+      return_date: serverTimestamp(),
+      status: "completed",
+      return_lines: returnLines,
+      total_refund: totalRefund,
+      refund_method: refundMethod,
+      notes,
+      created_by: actor.uid,
+      created_by_name_snapshot: actor.name,
+    });
+
+    transaction.set(doc(collection(db, "auditLogs")), {
+      timestamp: serverTimestamp(),
+      user_id: actor.uid,
+      user_name_snapshot: actor.name,
+      user_role_snapshot: actor.role,
+      action: "SALE_RETURN_PROCESSED",
+      entity_type: "saleReturn",
+      entity_id: returnRef.id,
+      details: {
+        original_sale_id: originalSaleId,
+        total_refund: totalRefund,
+        refund_method: refundMethod,
+        item_count: returnLines.reduce((sum, l) => sum + l.quantity_returned, 0),
+      },
+    });
+  });
+
+  return returnRef.id;
 }

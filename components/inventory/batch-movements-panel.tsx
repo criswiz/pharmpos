@@ -68,6 +68,11 @@ const TX_META: Record<StockTransaction["type"], TxMeta> = {
     iconClass: "text-purple-600 bg-purple-50",
     label: () => "Batch recalled",
   },
+  return: {
+    icon: ArrowUpCircle,
+    iconClass: "text-teal-600 bg-teal-50",
+    label: () => "Customer return",
+  },
 };
 
 interface Props {

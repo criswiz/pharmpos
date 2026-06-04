@@ -18,6 +18,7 @@ const PAYMENT_LABEL: Record<string, string> = {
   cash: "Cash",
   momo: "Mobile Money",
   card: "Card",
+  split: "Split payment",
 };
 
 function buildPrintHtml(receipt: ReceiptData, pharmacy: PharmacyInfo): string {
@@ -34,6 +35,18 @@ function buildPrintHtml(receipt: ReceiptData, pharmacy: PharmacyInfo): string {
       </div>`,
     )
     .join("");
+
+  const discountRow = receipt.discount_amount > 0
+    ? `<div class="row"><span>Subtotal</span><span>${ghsCurrency.format(receipt.subtotal)}</span></div>
+       <div class="row"><span>Discount</span><span>-${ghsCurrency.format(receipt.discount_amount)}</span></div>`
+    : "";
+
+  const paymentRows = receipt.payment_method === "split" && receipt.payment_splits?.length
+    ? receipt.payment_splits.map(
+        (s) => `<div class="row"><span>${PAYMENT_LABEL[s.method] ?? s.method}</span><span>${ghsCurrency.format(s.amount)}</span></div>`,
+      ).join("")
+    : `<div class="row"><span>Payment</span><span>${PAYMENT_LABEL[receipt.payment_method] ?? receipt.payment_method}</span></div>
+       <div class="row"><span>Tendered</span><span>${ghsCurrency.format(receipt.amount_tendered)}</span></div>`;
 
   const changeRow =
     receipt.change > 0
@@ -75,10 +88,10 @@ function buildPrintHtml(receipt: ReceiptData, pharmacy: PharmacyInfo): string {
   <div class="sep"></div>
   ${lines}
   <div class="sep"></div>
+  ${discountRow}
   <div class="row total-row"><span>TOTAL</span><span>${ghsCurrency.format(receipt.total)}</span></div>
   <div class="sep"></div>
-  <div class="row"><span>Payment</span><span>${PAYMENT_LABEL[receipt.payment_method] ?? receipt.payment_method}</span></div>
-  <div class="row"><span>Tendered</span><span>${ghsCurrency.format(receipt.amount_tendered)}</span></div>
+  ${paymentRows}
   ${changeRow}
   <div class="sep"></div>
   <div class="c" style="margin-top:6px">Thank you for your purchase.</div>
@@ -151,39 +164,20 @@ export function ReceiptModal({ receipt, onClose }: Props) {
           <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 py-5 font-mono text-[11px] text-zinc-800">
             <div className="mb-3 text-center">
               <p className="text-sm font-bold text-zinc-900">{pharmacy?.name ?? "Loading…"}</p>
-              {pharmacy?.tagline ? (
-                <p className="text-[10px] text-zinc-500">{pharmacy.tagline}</p>
-              ) : null}
-              {pharmacy?.address ? (
-                <p className="text-[10px] text-zinc-500">{pharmacy.address}</p>
-              ) : null}
-              {pharmacy?.phone ? (
-                <p className="text-[10px] text-zinc-500">Tel: {pharmacy.phone}</p>
-              ) : null}
-              {pharmacy?.fda_number ? (
-                <p className="text-[10px] text-zinc-500">FDA Reg: {pharmacy.fda_number}</p>
-              ) : null}
+              {pharmacy?.tagline ? <p className="text-[10px] text-zinc-500">{pharmacy.tagline}</p> : null}
+              {pharmacy?.address ? <p className="text-[10px] text-zinc-500">{pharmacy.address}</p> : null}
+              {pharmacy?.phone ? <p className="text-[10px] text-zinc-500">Tel: {pharmacy.phone}</p> : null}
+              {pharmacy?.fda_number ? <p className="text-[10px] text-zinc-500">FDA Reg: {pharmacy.fda_number}</p> : null}
             </div>
 
             <div className="my-2 border-t border-dashed border-zinc-300" />
-
             <div className="mb-2 text-center font-bold tracking-widest">RETAIL SALE</div>
-
             <div className="my-2 border-t border-dashed border-zinc-300" />
 
             <div className="mb-2 space-y-0.5 text-[10px]">
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Date</span>
-                <span>{dateFormat.format(receipt.sale_date)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Ref</span>
-                <span>{receipt.sale_id.slice(-12).toUpperCase()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Cashier</span>
-                <span>{receipt.cashier_name}</span>
-              </div>
+              <div className="flex justify-between"><span className="text-zinc-500">Date</span><span>{dateFormat.format(receipt.sale_date)}</span></div>
+              <div className="flex justify-between"><span className="text-zinc-500">Ref</span><span>{receipt.sale_id.slice(-12).toUpperCase()}</span></div>
+              <div className="flex justify-between"><span className="text-zinc-500">Cashier</span><span>{receipt.cashier_name}</span></div>
             </div>
 
             <div className="my-2 border-t border-dashed border-zinc-300" />
@@ -194,9 +188,7 @@ export function ReceiptModal({ receipt, onClose }: Props) {
                   <p className="font-semibold text-zinc-900">{line.product_name}</p>
                   <p className="text-[10px] text-zinc-400">Batch: {line.batch_number}</p>
                   <div className="flex justify-between">
-                    <span className="text-zinc-500">
-                      {line.quantity} × {ghsCurrency.format(line.unit_price)}
-                    </span>
+                    <span className="text-zinc-500">{line.quantity} × {ghsCurrency.format(line.unit_price)}</span>
                     <span className="font-medium">{ghsCurrency.format(line.line_total)}</span>
                   </div>
                 </div>
@@ -205,7 +197,14 @@ export function ReceiptModal({ receipt, onClose }: Props) {
 
             <div className="my-2 border-t border-dashed border-zinc-300" />
 
-            <div className="flex justify-between text-sm font-bold text-zinc-900">
+            {receipt.discount_amount > 0 ? (
+              <div className="space-y-0.5 text-[10px]">
+                <div className="flex justify-between text-zinc-500"><span>Subtotal</span><span>{ghsCurrency.format(receipt.subtotal)}</span></div>
+                <div className="flex justify-between text-emerald-700"><span>Discount</span><span>−{ghsCurrency.format(receipt.discount_amount)}</span></div>
+              </div>
+            ) : null}
+
+            <div className={`flex justify-between text-sm font-bold text-zinc-900 ${receipt.discount_amount > 0 ? "mt-1" : ""}`}>
               <span>TOTAL</span>
               <span>{ghsCurrency.format(receipt.total)}</span>
             </div>
@@ -213,14 +212,25 @@ export function ReceiptModal({ receipt, onClose }: Props) {
             <div className="my-2 border-t border-dashed border-zinc-300" />
 
             <div className="space-y-0.5 text-[10px]">
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Payment</span>
-                <span>{PAYMENT_LABEL[receipt.payment_method] ?? receipt.payment_method}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Tendered</span>
-                <span>{ghsCurrency.format(receipt.amount_tendered)}</span>
-              </div>
+              {receipt.payment_method === "split" && receipt.payment_splits?.length ? (
+                receipt.payment_splits.map((s, i) => (
+                  <div key={i} className="flex justify-between">
+                    <span className="text-zinc-500">{PAYMENT_LABEL[s.method] ?? s.method}</span>
+                    <span>{ghsCurrency.format(s.amount)}</span>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">Payment</span>
+                    <span>{PAYMENT_LABEL[receipt.payment_method] ?? receipt.payment_method}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">Tendered</span>
+                    <span>{ghsCurrency.format(receipt.amount_tendered)}</span>
+                  </div>
+                </>
+              )}
               {receipt.change > 0 ? (
                 <div className="flex justify-between font-semibold">
                   <span>Change</span>
@@ -230,7 +240,6 @@ export function ReceiptModal({ receipt, onClose }: Props) {
             </div>
 
             <div className="my-3 border-t border-dashed border-zinc-300" />
-
             <p className="text-center text-[10px] text-zinc-500">Thank you for your purchase.</p>
           </div>
         </div>

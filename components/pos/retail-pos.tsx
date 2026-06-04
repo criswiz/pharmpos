@@ -10,28 +10,41 @@ import {
   Play,
   Plus,
   Receipt,
+  RotateCcw,
   Search,
   ShoppingCart,
   Smartphone,
   Trash2,
   Wifi,
   WifiOff,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ReceiptModal } from "@/components/pos/receipt-modal";
+import { ReturnModal } from "@/components/pos/return-modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { checkoutRetailSale, getSaleReceipt, subscribeRecentRetailSales } from "@/lib/services/sales.service";
+import {
+  checkoutRetailSale,
+  getSaleReceipt,
+  subscribeRecentRetailSales,
+} from "@/lib/services/sales.service";
 import { subscribeBatches, subscribeProducts } from "@/lib/services/inventory.service";
 import { allocateFefoStock } from "@/lib/utils/fefo";
+import { canAccess } from "@/lib/utils/rbac";
 import { usePosCart } from "@/stores/pos-cart";
-import { ReceiptModal } from "@/components/pos/receipt-modal";
-import type { Batch, PaymentMethod, Product, ReceiptData, SaleTransaction } from "@/types";
+import type {
+  Batch,
+  PaymentSplit,
+  Product,
+  ReceiptData,
+  SaleDiscount,
+  SaleTransaction,
+  SinglePaymentMethod,
+} from "@/types";
 
-const currency = new Intl.NumberFormat("en-GH", {
-  style: "currency",
-  currency: "GHS",
-});
+const currency = new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS" });
 const number = new Intl.NumberFormat("en-GH");
 const timeFormat = new Intl.DateTimeFormat("en-GH", {
   hour: "2-digit",
@@ -40,6 +53,16 @@ const timeFormat = new Intl.DateTimeFormat("en-GH", {
   month: "short",
 });
 
+const PAYMENT_METHODS: Array<{ value: SinglePaymentMethod; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { value: "cash", label: "Cash", icon: Banknote },
+  { value: "momo", label: "MoMo", icon: Smartphone },
+  { value: "card", label: "Card", icon: CreditCard },
+];
+
+const PAYMENT_LABEL: Record<string, string> = { cash: "Cash", momo: "MoMo", card: "Card", split: "Split" };
+
+const DISCOUNT_THRESHOLD_PCT = 20;
+
 function toDate(value: SaleTransaction["sale_date"]) {
   if (!value) return new Date();
   return typeof (value as { toDate?: () => Date }).toDate === "function"
@@ -47,41 +70,67 @@ function toDate(value: SaleTransaction["sale_date"]) {
     : (value as Date);
 }
 
+function money(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function computeDiscountAmount(subtotal: number, discount: SaleDiscount | null): number {
+  if (!discount || discount.value <= 0) return 0;
+  const raw = discount.type === "pct"
+    ? subtotal * (discount.value / 100)
+    : discount.value;
+  return money(Math.min(raw, subtotal));
+}
+
 export function RetailPos() {
   const { user, appUser, role } = useAuth();
   const { toast } = useToast();
   const searchRef = useRef<HTMLInputElement>(null);
+
   const [products, setProducts] = useState<Product[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [batchesLoading, setBatchesLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
-  const [cashReceived, setCashReceived] = useState("");
-  const [checkingOut, setCheckingOut] = useState(false);
   const [online, setOnline] = useState(true);
-  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [recentSales, setRecentSales] = useState<SaleTransaction[]>([]);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const [returnSaleId, setReturnSaleId] = useState<string | null>(null);
   const [fetchingReceipt, setFetchingReceipt] = useState<string | null>(null);
+  const [checkingOut, setCheckingOut] = useState(false);
+
+  // Payment state
+  const [splitMode, setSplitMode] = useState(false);
+  const [singleMethod, setSingleMethod] = useState<SinglePaymentMethod>("cash");
+  const [cashReceived, setCashReceived] = useState("");
+  const [splits, setSplits] = useState<Array<{ method: SinglePaymentMethod; amount: string }>>([
+    { method: "cash", amount: "" },
+    { method: "momo", amount: "" },
+  ]);
+
   const {
     items,
     parkedSales,
+    discount,
     addProduct,
     setQuantity,
     removeProduct,
     clearCart,
+    setDiscount,
     parkCart,
     resumeParkedSale,
     deleteParkedSale,
   } = usePosCart();
+
+  const isManager = canAccess(role, "inventory:write");
+  const actor = user && appUser && role ? { uid: user.uid, name: appUser.name, role } : null;
 
   useEffect(() => {
     const updateOnlineState = () => setOnline(navigator.onLine);
     updateOnlineState();
     window.addEventListener("online", updateOnlineState);
     window.addEventListener("offline", updateOnlineState);
-
     return () => {
       window.removeEventListener("online", updateOnlineState);
       window.removeEventListener("offline", updateOnlineState);
@@ -99,24 +148,12 @@ export function RetailPos() {
     try {
       unsubscribes.push(
         subscribeProducts(
-          (nextProducts) => {
-            setProducts(nextProducts);
-            setProductsLoading(false);
-          },
-          () => {
-            setProductsLoading(false);
-            handleError("Products could not be loaded. Check Firestore access.");
-          },
+          (nextProducts) => { setProducts(nextProducts); setProductsLoading(false); },
+          () => { setProductsLoading(false); handleError("Products could not be loaded."); },
         ),
         subscribeBatches(
-          (nextBatches) => {
-            setBatches(nextBatches);
-            setBatchesLoading(false);
-          },
-          () => {
-            setBatchesLoading(false);
-            handleError("Batch stock could not be loaded. Check Firestore access.");
-          },
+          (nextBatches) => { setBatches(nextBatches); setBatchesLoading(false); },
+          () => { setBatchesLoading(false); handleError("Batch stock could not be loaded."); },
         ),
         subscribeRecentRetailSales(
           (sales) => setRecentSales(sales),
@@ -134,28 +171,21 @@ export function RetailPos() {
     }
 
     return () => {
-      unsubscribes.forEach((unsubscribe) => unsubscribe());
-      if (fallbackTimer) {
-        clearTimeout(fallbackTimer);
-      }
+      unsubscribes.forEach((u) => u());
+      if (fallbackTimer) clearTimeout(fallbackTimer);
     };
   }, [toast]);
 
-  const activeProducts = useMemo(
-    () => products.filter((product) => product.is_active),
-    [products],
-  );
+  const activeProducts = useMemo(() => products.filter((p) => p.is_active), [products]);
   const visibleProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
-
     return activeProducts
-      .filter(
-        (product) =>
-          !term ||
-          product.name_brand.toLowerCase().includes(term) ||
-          product.name_generic.toLowerCase().includes(term) ||
-          product.barcode_primary.toLowerCase().includes(term) ||
-          product.barcode_internal?.toLowerCase().includes(term),
+      .filter((product) =>
+        !term ||
+        product.name_brand.toLowerCase().includes(term) ||
+        product.name_generic.toLowerCase().includes(term) ||
+        product.barcode_primary.toLowerCase().includes(term) ||
+        product.barcode_internal?.toLowerCase().includes(term),
       )
       .slice(0, 30);
   }, [activeProducts, search]);
@@ -164,44 +194,56 @@ export function RetailPos() {
     () =>
       items.map((item) => {
         const allocation = allocateFefoStock(
-          batches.filter((batch) => batch.product_id === item.product_id),
+          batches.filter((b) => b.product_id === item.product_id),
           item.quantity,
         );
         const lineTotal = allocation.allocations.reduce(
-          (total, allocated) => total + allocated.quantity * allocated.batch.retail_price,
+          (total, a) => total + a.quantity * a.batch.retail_price,
           0,
         );
-
         return { ...item, allocation, lineTotal };
       }),
     [batches, items],
   );
-  const estimatedTotal = cartLines.reduce((total, line) => total + line.lineTotal, 0);
-  const totalUnits = items.reduce((total, item) => total + item.quantity, 0);
-  const stockReady = cartLines.every((line) => line.allocation.fulfilled);
-  const loading = productsLoading || batchesLoading;
+
+  const subtotal = cartLines.reduce((t, l) => t + l.lineTotal, 0);
+  const discountAmount = computeDiscountAmount(subtotal, discount);
+  const total = money(subtotal - discountAmount);
+  const totalUnits = items.reduce((t, i) => t + i.quantity, 0);
+  const stockReady = cartLines.every((l) => l.allocation.fulfilled);
+
+  const discountExceedsThreshold =
+    discount &&
+    discount.value > 0 &&
+    (discount.type === "pct"
+      ? discount.value > DISCOUNT_THRESHOLD_PCT
+      : discountAmount / subtotal > DISCOUNT_THRESHOLD_PCT / 100);
+
+  const splitsTotal = money(splits.reduce((sum, s) => sum + (Number(s.amount) || 0), 0));
+  const splitsValid = splitsTotal >= total && splits.some((s) => Number(s.amount) > 0);
+  const singleCashTendered = Number(cashReceived) || 0;
+
+  const canCheckout =
+    items.length > 0 &&
+    stockReady &&
+    !checkingOut &&
+    online &&
+    !(discountExceedsThreshold && !isManager) &&
+    (splitMode
+      ? splitsValid
+      : singleMethod !== "cash" || singleCashTendered >= total);
 
   function productStock(productId: string) {
-    return allocateFefoStock(
-      batches.filter((batch) => batch.product_id === productId),
-      1,
-    );
+    return allocateFefoStock(batches.filter((b) => b.product_id === productId), 1);
   }
 
   function handleAddProduct(product: Product) {
     const stock = productStock(product.id);
-    const currentQuantity =
-      items.find((item) => item.product_id === product.id)?.quantity ?? 0;
-
+    const currentQuantity = items.find((i) => i.product_id === product.id)?.quantity ?? 0;
     if (stock.available <= currentQuantity) {
-      toast({
-        title: "No more sellable stock",
-        description: `${product.name_brand} has ${stock.available} units available.`,
-        variant: "error",
-      });
+      toast({ title: "No more sellable stock", description: `${product.name_brand} has ${stock.available} units available.`, variant: "error" });
       return;
     }
-
     addProduct(product);
     setSearch("");
     searchRef.current?.focus();
@@ -211,88 +253,69 @@ export function RetailPos() {
     event.preventDefault();
     const term = search.trim().toLowerCase();
     const barcodeMatch = activeProducts.find(
-      (product) =>
-        product.barcode_primary.toLowerCase() === term ||
-        product.barcode_internal?.toLowerCase() === term,
+      (p) => p.barcode_primary.toLowerCase() === term || p.barcode_internal?.toLowerCase() === term,
     );
     const product = barcodeMatch ?? (visibleProducts.length === 1 ? visibleProducts[0] : null);
-
-    if (product) {
-      handleAddProduct(product);
-      return;
-    }
-
+    if (product) { handleAddProduct(product); return; }
     toast({
       title: term ? "Select a matching product" : "Scan or search for a product",
-      description: term
-        ? `${visibleProducts.length} products match the current search.`
-        : "Enter a barcode, brand, or generic name.",
+      description: term ? `${visibleProducts.length} products match.` : "Enter a barcode, brand, or generic name.",
       variant: "info",
     });
   }
 
   function changeQuantity(productId: string, nextQuantity: number, available: number) {
     if (nextQuantity > available) {
-      toast({
-        title: "Insufficient stock",
-        description: `Only ${available} sellable units are available.`,
-        variant: "error",
-      });
+      toast({ title: "Insufficient stock", description: `Only ${available} sellable units are available.`, variant: "error" });
       return;
     }
     setQuantity(productId, nextQuantity);
   }
 
   function handleParkSale() {
-    if (items.length === 0) {
-      return;
-    }
+    if (items.length === 0) return;
     parkCart();
     setCashReceived("");
+    setSplitMode(false);
     toast({ title: "Sale parked", description: "The cart was saved on this device.", variant: "success" });
   }
 
   async function handleCheckout() {
-    if (!user || !appUser || !role) {
-      toast({
-        title: "Checkout unavailable",
-        description: "Your user profile and role are required.",
-        variant: "error",
-      });
-      return;
-    }
-
-    if (!online) {
-      toast({
-        title: "Checkout requires a connection",
-        description: "Reconnect before deducting stock and completing the sale.",
-        variant: "error",
-      });
-      return;
-    }
+    if (!actor) { toast({ title: "Checkout unavailable", description: "Your user profile is required.", variant: "error" }); return; }
+    if (!online) { toast({ title: "Checkout requires a connection", description: "Reconnect before completing the sale.", variant: "error" }); return; }
 
     setCheckingOut(true);
     try {
+      const paymentSplits: PaymentSplit[] | undefined = splitMode
+        ? splits.filter((s) => Number(s.amount) > 0).map((s) => ({ method: s.method, amount: money(Number(s.amount)) }))
+        : undefined;
+
       const result = await checkoutRetailSale(
         {
           items,
           batches,
-          payment_method: paymentMethod,
-          amount_tendered: paymentMethod === "cash" ? Number(cashReceived) : undefined,
+          payment_method: splitMode ? "split" : singleMethod,
+          amount_tendered: !splitMode && singleMethod === "cash" ? singleCashTendered : undefined,
+          payment_splits: paymentSplits,
+          discount,
         },
-        { uid: user.uid, name: appUser.name, role },
+        actor,
       );
+
       clearCart();
       setCashReceived("");
+      setSplitMode(false);
+      setSplits([{ method: "cash", amount: "" }, { method: "momo", amount: "" }]);
       setReceiptData(result.receipt);
       searchRef.current?.focus();
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : "";
-      const message = rawMessage.includes("available") || rawMessage.includes("total")
-        ? rawMessage
-        : rawMessage.includes("offline")
-          ? "Checkout could not complete because Firestore is offline."
-          : "Checkout could not complete. Refresh stock and check Firebase permissions.";
+      const message =
+        rawMessage.includes("available") || rawMessage.includes("total") || rawMessage.includes("below")
+          ? rawMessage
+          : rawMessage.includes("offline")
+            ? "Checkout could not complete because Firestore is offline."
+            : "Checkout could not complete. Check Firebase permissions.";
       toast({ title: "Sale not completed", description: message, variant: "error" });
     } finally {
       setCheckingOut(false);
@@ -303,11 +326,8 @@ export function RetailPos() {
     setFetchingReceipt(saleId);
     try {
       const receipt = await getSaleReceipt(saleId);
-      if (receipt) {
-        setReceiptData(receipt);
-      } else {
-        toast({ title: "Receipt not found", description: "The sale record could not be loaded.", variant: "error" });
-      }
+      if (receipt) setReceiptData(receipt);
+      else toast({ title: "Receipt not found", description: "The sale record could not be loaded.", variant: "error" });
     } catch {
       toast({ title: "Could not load receipt", description: "Check your connection and try again.", variant: "error" });
     } finally {
@@ -315,10 +335,13 @@ export function RetailPos() {
     }
   }
 
+  const loading = productsLoading || batchesLoading;
+
   return (
     <div className="space-y-5">
-      {receiptData ? (
-        <ReceiptModal receipt={receiptData} onClose={() => setReceiptData(null)} />
+      {receiptData ? <ReceiptModal receipt={receiptData} onClose={() => setReceiptData(null)} /> : null}
+      {returnSaleId && actor ? (
+        <ReturnModal saleId={returnSaleId} actor={actor} onClose={() => setReturnSaleId(null)} />
       ) : null}
 
       <header className="flex flex-col gap-4 border-b border-emerald-900/10 pb-5 md:flex-row md:items-end md:justify-between">
@@ -329,23 +352,18 @@ export function RetailPos() {
             Scan or search products, allocate FEFO stock, and complete an atomic retail sale.
           </p>
         </div>
-        <div
-          className={`flex h-9 items-center gap-2 rounded-full px-3 text-xs font-medium ${
-            online ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
-          }`}
-        >
+        <div className={`flex h-9 items-center gap-2 rounded-full px-3 text-xs font-medium ${online ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
           {online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
           {online ? "Online checkout ready" : "Checkout offline"}
         </div>
       </header>
 
       {loadError ? (
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {loadError}
-        </p>
+        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</p>
       ) : null}
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(390px,0.65fr)]">
+        {/* Left: product grid + parked + recent */}
         <div className="space-y-4">
           <form onSubmit={handleSearchSubmit} className="relative">
             <Search className="pointer-events-none absolute left-4 top-3.5 h-5 w-5 text-zinc-400" />
@@ -353,7 +371,7 @@ export function RetailPos() {
               ref={searchRef}
               autoFocus
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder="Scan barcode or search product, then press Enter"
               className="h-12 w-full rounded-md border border-zinc-300 bg-white pl-12 pr-4 text-sm outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/15"
             />
@@ -373,7 +391,6 @@ export function RetailPos() {
                 ? visibleProducts.map((product) => {
                     const stock = productStock(product.id);
                     const nextBatch = stock.allocations[0]?.batch;
-
                     return (
                       <button
                         key={product.id}
@@ -391,12 +408,8 @@ export function RetailPos() {
                         </div>
                         <div className="mt-3 flex items-end justify-between gap-3">
                           <div>
-                            <p className="font-mono text-[11px] text-zinc-500">
-                              {product.barcode_primary}
-                            </p>
-                            <p className="mt-1 text-xs text-zinc-600">
-                              {number.format(stock.available)} available
-                            </p>
+                            <p className="font-mono text-[11px] text-zinc-500">{product.barcode_primary}</p>
+                            <p className="mt-1 text-xs text-zinc-600">{number.format(stock.available)} available</p>
                           </div>
                           <p className="text-sm font-semibold text-emerald-800">
                             {nextBatch ? currency.format(nextBatch.retail_price) : "No stock"}
@@ -423,17 +436,14 @@ export function RetailPos() {
                   <h2 className="text-sm font-semibold text-emerald-950">Parked sales</h2>
                   <p className="mt-1 text-xs text-zinc-500">Saved locally on this device</p>
                 </div>
-                <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs text-zinc-600">
-                  {parkedSales.length}
-                </span>
+                <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs text-zinc-600">{parkedSales.length}</span>
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {parkedSales.map((sale) => (
                   <div key={sale.id} className="rounded-md border border-zinc-200 p-3">
                     <p className="text-sm font-medium text-emerald-950">{sale.label}</p>
                     <p className="mt-1 text-xs text-zinc-500">
-                      {sale.items.reduce((sum, item) => sum + item.quantity, 0)} units |{" "}
-                      {new Date(sale.parked_at).toLocaleString("en-GH")}
+                      {sale.items.reduce((s, i) => s + i.quantity, 0)} units | {new Date(sale.parked_at).toLocaleString("en-GH")}
                     </p>
                     <div className="mt-3 flex gap-2">
                       <button
@@ -472,17 +482,23 @@ export function RetailPos() {
                 {recentSales.map((sale) => (
                   <div key={sale.id} className="flex items-center justify-between gap-4 px-4 py-3">
                     <div className="min-w-0">
-                      <p className="truncate font-mono text-[11px] text-zinc-400">
-                        {sale.id.slice(-10).toUpperCase()}
-                      </p>
+                      <p className="truncate font-mono text-[11px] text-zinc-400">{sale.id.slice(-10).toUpperCase()}</p>
                       <p className="mt-0.5 text-xs text-zinc-500">
                         {timeFormat.format(toDate(sale.sale_date))} · {sale.item_count} item{sale.item_count === 1 ? "" : "s"} · {PAYMENT_LABEL[sale.payment_method] ?? sale.payment_method}
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                      <p className="text-sm font-semibold text-emerald-950">
-                        {currency.format(sale.total)}
-                      </p>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <p className="text-sm font-semibold text-emerald-950">{currency.format(sale.total)}</p>
+                      {isManager ? (
+                        <button
+                          type="button"
+                          title="Process return"
+                          onClick={() => setReturnSaleId(sale.id)}
+                          className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 text-zinc-500 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         title="View receipt"
@@ -500,6 +516,7 @@ export function RetailPos() {
           ) : null}
         </div>
 
+        {/* Right: cart + discount + payment */}
         <aside className="h-fit rounded-md border border-emerald-900/10 bg-white shadow-sm xl:sticky xl:top-6">
           <header className="flex items-center justify-between border-b border-emerald-900/10 px-4 py-4">
             <div className="flex items-center gap-2">
@@ -510,158 +527,221 @@ export function RetailPos() {
               </div>
             </div>
             {items.length > 0 ? (
-              <button
-                type="button"
-                onClick={clearCart}
-                className="text-xs font-medium text-red-600 hover:text-red-700"
-              >
-                Clear
-              </button>
+              <button type="button" onClick={clearCart} className="text-xs font-medium text-red-600 hover:text-red-700">Clear</button>
             ) : null}
           </header>
 
-          <div className="max-h-[390px] divide-y divide-zinc-100 overflow-y-auto">
+          <div className="max-h-[340px] divide-y divide-zinc-100 overflow-y-auto">
             {cartLines.map((line) => (
               <div key={line.product_id} className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-emerald-950">
-                      {line.product_name_snapshot}
-                    </p>
+                    <p className="text-sm font-medium text-emerald-950">{line.product_name_snapshot}</p>
                     <p className="mt-1 text-xs text-zinc-500">
                       {line.allocation.fulfilled
                         ? `${line.allocation.allocations.length} FEFO batch${line.allocation.allocations.length === 1 ? "" : "es"}`
                         : `Only ${line.allocation.available} available`}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    title="Remove product"
-                    onClick={() => removeProduct(line.product_id)}
-                    className="text-zinc-400 hover:text-red-600"
-                  >
+                  <button type="button" title="Remove" onClick={() => removeProduct(line.product_id)} className="text-zinc-400 hover:text-red-600">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-3">
                   <div className="flex items-center rounded-md border border-zinc-200">
-                    <button
-                      type="button"
-                      title="Decrease quantity"
-                      onClick={() =>
-                        changeQuantity(line.product_id, line.quantity - 1, line.allocation.available)
-                      }
-                      className="flex h-8 w-8 items-center justify-center hover:bg-zinc-50"
-                    >
+                    <button type="button" title="Decrease" onClick={() => changeQuantity(line.product_id, line.quantity - 1, line.allocation.available)} className="flex h-8 w-8 items-center justify-center hover:bg-zinc-50">
                       <Minus className="h-3.5 w-3.5" />
                     </button>
                     <input
                       aria-label={`${line.product_name_snapshot} quantity`}
-                      type="number"
-                      min="1"
-                      value={line.quantity}
-                      onChange={(event) =>
-                        changeQuantity(
-                          line.product_id,
-                          Math.max(1, Number(event.target.value) || 1),
-                          line.allocation.available,
-                        )
-                      }
+                      type="number" min="1" value={line.quantity}
+                      onChange={(e) => changeQuantity(line.product_id, Math.max(1, Number(e.target.value) || 1), line.allocation.available)}
                       className="h-8 w-12 border-x border-zinc-200 text-center text-sm outline-none"
                     />
-                    <button
-                      type="button"
-                      title="Increase quantity"
-                      onClick={() =>
-                        changeQuantity(line.product_id, line.quantity + 1, line.allocation.available)
-                      }
-                      className="flex h-8 w-8 items-center justify-center hover:bg-zinc-50"
-                    >
+                    <button type="button" title="Increase" onClick={() => changeQuantity(line.product_id, line.quantity + 1, line.allocation.available)} className="flex h-8 w-8 items-center justify-center hover:bg-zinc-50">
                       <Plus className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                  <p className="text-sm font-semibold text-emerald-950">
-                    {currency.format(line.lineTotal)}
-                  </p>
+                  <p className="text-sm font-semibold text-emerald-950">{currency.format(line.lineTotal)}</p>
                 </div>
                 {!line.allocation.fulfilled ? (
-                  <p className="mt-2 rounded-md bg-red-50 px-2 py-1 text-xs text-red-700">
-                    Reduce quantity before checkout.
-                  </p>
+                  <p className="mt-2 rounded-md bg-red-50 px-2 py-1 text-xs text-red-700">Reduce quantity before checkout.</p>
                 ) : null}
               </div>
             ))}
-
             {items.length === 0 ? (
-              <div className="flex min-h-56 flex-col items-center justify-center px-4 text-center">
+              <div className="flex min-h-48 flex-col items-center justify-center px-4 text-center">
                 <Boxes className="h-8 w-8 text-lime-600" />
                 <p className="mt-3 text-sm font-semibold text-emerald-950">Cart is empty</p>
-                <p className="mt-1 max-w-xs text-sm text-zinc-500">
-                  Scan a barcode or select a product to begin.
-                </p>
+                <p className="mt-1 max-w-xs text-sm text-zinc-500">Scan a barcode or select a product to begin.</p>
               </div>
             ) : null}
           </div>
 
           <div className="space-y-4 border-t border-emerald-900/10 p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-zinc-600">Estimated total</p>
-              <p className="text-xl font-semibold text-emerald-950">
-                {currency.format(estimatedTotal)}
-              </p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase text-zinc-500">Payment method</p>
-              <div className="grid grid-cols-3 gap-2">
-                <PaymentButton
-                  active={paymentMethod === "cash"}
-                  label="Cash"
-                  icon={Banknote}
-                  onClick={() => setPaymentMethod("cash")}
-                />
-                <PaymentButton
-                  active={paymentMethod === "momo"}
-                  label="MoMo"
-                  icon={Smartphone}
-                  onClick={() => setPaymentMethod("momo")}
-                />
-                <PaymentButton
-                  active={paymentMethod === "card"}
-                  label="Card"
-                  icon={CreditCard}
-                  onClick={() => setPaymentMethod("card")}
-                />
-              </div>
-            </div>
-
-            {paymentMethod === "cash" ? (
-              <label className="block text-sm font-medium text-emerald-950">
-                Cash received
-                <div className="mt-1 flex gap-2">
+            {/* Discount section */}
+            {items.length > 0 ? (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium uppercase text-zinc-500">Discount</p>
+                  {discount ? (
+                    <button type="button" onClick={() => setDiscount(null)} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700">
+                      <X className="h-3 w-3" />
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+                <div className="flex gap-2">
+                  <select
+                    value={discount?.type ?? "pct"}
+                    onChange={(e) => setDiscount({ type: e.target.value as "pct" | "fixed", value: discount?.value ?? 0 })}
+                    className="h-9 w-20 rounded-md border border-zinc-300 px-2 text-sm outline-none focus:border-emerald-700"
+                  >
+                    <option value="pct">%</option>
+                    <option value="fixed">GHS</option>
+                  </select>
                   <input
                     type="number"
                     min="0"
-                    step="0.01"
-                    value={cashReceived}
-                    onChange={(event) => setCashReceived(event.target.value)}
-                    className="h-10 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/15"
+                    step={discount?.type === "fixed" ? "0.01" : "1"}
+                    placeholder="0"
+                    value={discount?.value || ""}
+                    onChange={(e) => {
+                      const v = Math.max(0, Number(e.target.value) || 0);
+                      setDiscount({ type: discount?.type ?? "pct", value: v });
+                    }}
+                    className="h-9 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/15"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setCashReceived(estimatedTotal.toFixed(2))}
-                    className="h-10 rounded-md border border-zinc-300 px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-                  >
-                    Exact
-                  </button>
                 </div>
-              </label>
-            ) : (
-              <p className="rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
-                {paymentMethod === "momo" ? "MoMo" : "Card"} is recorded as an exact payment.
-              </p>
-            )}
+                {discountExceedsThreshold && !isManager ? (
+                  <p className="mt-1.5 text-xs text-amber-700">
+                    Discounts above {DISCOUNT_THRESHOLD_PCT}% require manager authorisation.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
+            {/* Totals */}
+            <div className="space-y-1">
+              {discountAmount > 0 ? (
+                <>
+                  <div className="flex items-center justify-between text-sm text-zinc-500">
+                    <span>Subtotal</span>
+                    <span>{currency.format(subtotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-emerald-700">
+                    <span>
+                      Discount ({discount?.type === "pct" ? `${discount.value}%` : "fixed"})
+                    </span>
+                    <span>−{currency.format(discountAmount)}</span>
+                  </div>
+                </>
+              ) : null}
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-zinc-600">Total</p>
+                <p className="text-xl font-semibold text-emerald-950">{currency.format(total)}</p>
+              </div>
+            </div>
+
+            {/* Payment section */}
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-medium uppercase text-zinc-500">Payment</p>
+                <button
+                  type="button"
+                  onClick={() => setSplitMode((v) => !v)}
+                  className={`text-xs font-medium ${splitMode ? "text-emerald-700" : "text-zinc-500 hover:text-zinc-700"}`}
+                >
+                  {splitMode ? "Single payment" : "Split payment"}
+                </button>
+              </div>
+
+              {!splitMode ? (
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    {PAYMENT_METHODS.map(({ value, label, icon: Icon }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setSingleMethod(value)}
+                        className={`flex h-10 items-center justify-center gap-2 rounded-md border text-xs font-medium ${singleMethod === value ? "border-emerald-700 bg-emerald-700 text-white" : "border-zinc-200 text-zinc-700 hover:bg-zinc-50"}`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {singleMethod === "cash" ? (
+                    <label className="mt-3 block text-sm font-medium text-emerald-950">
+                      Cash received
+                      <div className="mt-1 flex gap-2">
+                        <input
+                          type="number" min="0" step="0.01" value={cashReceived}
+                          onChange={(e) => setCashReceived(e.target.value)}
+                          className="h-10 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/15"
+                        />
+                        <button type="button" onClick={() => setCashReceived(total.toFixed(2))} className="h-10 rounded-md border border-zinc-300 px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50">
+                          Exact
+                        </button>
+                      </div>
+                      {singleCashTendered > 0 && singleCashTendered >= total ? (
+                        <p className="mt-1 text-xs text-emerald-700">Change: {currency.format(money(singleCashTendered - total))}</p>
+                      ) : null}
+                    </label>
+                  ) : (
+                    <p className="mt-2 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+                      {singleMethod === "momo" ? "MoMo" : "Card"} is recorded as an exact payment.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-2">
+                  {splits.map((split, i) => (
+                    <div key={i} className="flex gap-2">
+                      <select
+                        value={split.method}
+                        onChange={(e) => {
+                          const next = [...splits];
+                          next[i] = { ...next[i], method: e.target.value as SinglePaymentMethod };
+                          setSplits(next);
+                        }}
+                        className="h-9 w-24 rounded-md border border-zinc-300 px-2 text-sm outline-none focus:border-emerald-700"
+                      >
+                        {PAYMENT_METHODS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                      <input
+                        type="number" min="0" step="0.01" placeholder="0.00"
+                        value={split.amount}
+                        onChange={(e) => {
+                          const next = [...splits];
+                          next[i] = { ...next[i], amount: e.target.value };
+                          setSplits(next);
+                        }}
+                        className="h-9 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700"
+                      />
+                      {splits.length > 2 ? (
+                        <button type="button" onClick={() => setSplits(splits.filter((_, j) => j !== i))} className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-200 text-zinc-400 hover:text-red-500">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
+                    </div>
+                  ))}
+                  {splits.length < 3 ? (
+                    <button type="button" onClick={() => setSplits([...splits, { method: "card", amount: "" }])} className="text-xs font-medium text-emerald-700 hover:text-emerald-800">
+                      + Add payment line
+                    </button>
+                  ) : null}
+                  <div className="flex items-center justify-between pt-1 text-xs">
+                    <span className="text-zinc-500">Split total</span>
+                    <span className={splitsTotal >= total ? "font-medium text-emerald-700" : "text-red-600"}>
+                      {currency.format(splitsTotal)} {splitsTotal >= total && money(splitsTotal - total) > 0 ? `(change: ${currency.format(money(splitsTotal - total))})` : ""}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
             <div className="grid grid-cols-[auto_1fr] gap-2">
               <button
                 type="button"
@@ -675,50 +755,17 @@ export function RetailPos() {
               </button>
               <button
                 type="button"
-                disabled={items.length === 0 || !stockReady || checkingOut || !online}
+                disabled={!canCheckout}
                 onClick={handleCheckout}
                 className="h-11 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-55"
               >
-                {checkingOut ? "Completing sale..." : `Checkout ${currency.format(estimatedTotal)}`}
+                {checkingOut ? "Completing sale…" : `Checkout ${currency.format(total)}`}
               </button>
             </div>
           </div>
         </aside>
       </section>
     </div>
-  );
-}
-
-const PAYMENT_LABEL: Record<string, string> = {
-  cash: "Cash",
-  momo: "MoMo",
-  card: "Card",
-};
-
-function PaymentButton({
-  active,
-  label,
-  icon: Icon,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex h-10 items-center justify-center gap-2 rounded-md border text-xs font-medium ${
-        active
-          ? "border-emerald-700 bg-emerald-700 text-white"
-          : "border-zinc-200 text-zinc-700 hover:bg-zinc-50"
-      }`}
-    >
-      <Icon className="h-4 w-4" />
-      {label}
-    </button>
   );
 }
 

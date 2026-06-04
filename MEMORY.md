@@ -54,9 +54,9 @@ secrets or environment values.
 
 ## Next Up
 
-1. Add discounts/approval thresholds, split payments, returns, and void workflows.
-2. Build suppliers and full purchase order/GRN workflows around batch receiving.
-3. Replace scaffold dashboard metrics with Firestore-backed aggregates.
+1. Build suppliers and full purchase order/GRN workflows around batch receiving.
+2. Replace scaffold dashboard metrics with Firestore-backed aggregates.
+3. Void workflow for completed sales (manager-only, soft-delete with audit).
 
 ## Verification
 
@@ -79,6 +79,18 @@ secrets or environment values.
   batch decrements must reference a new sale in the same transaction. Verified
   with `bun run lint`, `bun run typecheck`, `bun run build`, and the Firestore
   emulator.
+- 2026-06-04: Added discounts, split payments, and returns to the retail POS.
+  Discounts (% or fixed) persist in the Zustand cart store (survives park/resume).
+  Discounts above 20% are blocked for non-managers (inventory:write gate).
+  Split payment mode allows up to 3 payment lines (cash/momo/card), summed against
+  total. `checkoutRetailSale` handles both modes and stores payment_splits[] in the
+  saleTransaction document. Returns are manager-only: `ReturnModal` fetches line
+  items for a past sale, lets the manager enter per-item quantities, then calls
+  `returnSaleItems` which atomically restores batch stock, creates stockTransactions
+  of type "return", creates a saleReturns record, and logs an audit entry. Stock
+  is NOT restored to recalled batches. `saleReturns` Firestore rule added (manager
+  create only). Receipt modal updated to show discount rows and split-payment lines.
+  Verified with lint, typecheck, build.
 - 2026-06-04: Added batch stock adjustments, recall controls, and movement history.
   `StockAdjustModal` handles both signed corrections (correction/damage/expiry_write_off/other)
   and recall quarantine in one component. `BatchMovementsPanel` is a real-time slide-in

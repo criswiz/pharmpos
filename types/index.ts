@@ -86,7 +86,18 @@ export interface Batch {
   created_by: string;
 }
 
-export type PaymentMethod = "cash" | "momo" | "card";
+export type SinglePaymentMethod = "cash" | "momo" | "card";
+export type PaymentMethod = SinglePaymentMethod | "split";
+
+export interface PaymentSplit {
+  method: SinglePaymentMethod;
+  amount: number;
+}
+
+export interface SaleDiscount {
+  type: "pct" | "fixed";
+  value: number;
+}
 
 export interface PosCartItem {
   product_id: string;
@@ -101,6 +112,7 @@ export interface ParkedSale {
   label: string;
   parked_at: string;
   items: PosCartItem[];
+  discount?: SaleDiscount | null;
 }
 
 export interface PharmacyInfo {
@@ -126,8 +138,11 @@ export interface ReceiptData {
   sale_date: Date;
   cashier_name: string;
   lines: ReceiptLine[];
+  subtotal: number;
+  discount_amount: number;
   total: number;
   payment_method: PaymentMethod;
+  payment_splits?: PaymentSplit[];
   amount_tendered: number;
   change: number;
   item_count: number;
@@ -141,7 +156,7 @@ export interface StockTransaction {
   product_id: string;
   product_name_snapshot: string;
   batch_number_snapshot: string;
-  type: "receipt" | "sale" | "adjustment" | "recall";
+  type: "receipt" | "sale" | "adjustment" | "recall" | "return";
   adjustment_type?: AdjustmentType;
   quantity_change: number;
   quantity_after: number;
@@ -162,10 +177,48 @@ export interface SaleTransaction {
   discount_total: number;
   total: number;
   payment_method: PaymentMethod;
+  payment_splits?: PaymentSplit[];
   amount_tendered: number;
   change: number;
   item_count: number;
   line_count: number;
+  created_by: string;
+  created_by_name_snapshot: string;
+}
+
+export interface SaleLineItem {
+  id: string;
+  sale_id: string;
+  product_id: string;
+  product_name_snapshot: string;
+  batch_id: string;
+  batch_number_snapshot: string;
+  quantity: number;
+  unit_price: number;
+  cost_price_snapshot: number;
+  line_total: number;
+}
+
+export interface ReturnLine {
+  sale_line_item_id?: string;
+  product_id: string;
+  product_name_snapshot: string;
+  batch_id: string;
+  batch_number_snapshot: string;
+  quantity_returned: number;
+  unit_price: number;
+  line_total: number;
+}
+
+export interface SaleReturn {
+  id: string;
+  original_sale_id: string;
+  return_date: FirestoreDate;
+  status: "completed";
+  return_lines: ReturnLine[];
+  total_refund: number;
+  refund_method: SinglePaymentMethod;
+  notes: string;
   created_by: string;
   created_by_name_snapshot: string;
 }

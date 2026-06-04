@@ -177,5 +177,14 @@ service cloud.firestore {
       allow write: if isManager();
       allow delete: if false;
     }
+
+    match /saleReturns/{returnId} {
+      allow read: if signedIn();
+      allow create: if isManager()
+        && request.resource.data.created_by == request.auth.uid
+        && request.resource.data.status == 'completed'
+        && request.resource.data.total_refund > 0;
+      allow update, delete: if false;
+    }
   }
 }
