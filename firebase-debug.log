@@ -1,0 +1,248 @@
+[debug] [2026-06-04T13:09:04.243Z] ----------------------------------------------------------------------
+[debug] [2026-06-04T13:09:04.250Z] Command:       /opt/homebrew/Cellar/node/24.3.0/bin/node /opt/homebrew/bin/firebase firestore:databases:list --project pharmpos-bef59
+[debug] [2026-06-04T13:09:04.250Z] CLI Version:   15.18.0
+[debug] [2026-06-04T13:09:04.250Z] Platform:      darwin
+[debug] [2026-06-04T13:09:04.250Z] Node Version:  v24.3.0
+[debug] [2026-06-04T13:09:04.250Z] Time:          Thu Jun 04 2026 13:09:04 GMT+0000 (Greenwich Mean Time)
+[debug] [2026-06-04T13:09:04.250Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-06-04T13:09:04.251Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-06-04T13:09:05.797Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-06-04T13:09:05.798Z] > authorizing via signed-in user (samuel.agbenorwu@gmail.com)
+[debug] [2026-06-04T13:09:05.798Z] [iam] checking project pharmpos-bef59 for permissions ["datastore.databases.list","firebase.projects.get"]
+[debug] [2026-06-04T13:09:05.798Z] Checked if tokens are valid: false, expires at: 1780337422807
+[debug] [2026-06-04T13:09:05.798Z] Checked if tokens are valid: false, expires at: 1780337422807
+[debug] [2026-06-04T13:09:05.798Z] > refreshing access token with scopes: []
+[debug] [2026-06-04T13:09:05.799Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-06-04T13:09:05.799Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-06-04T13:09:06.263Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-06-04T13:09:06.263Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-06-04T13:09:06.275Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions [none]
+[debug] [2026-06-04T13:09:06.275Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions  x-goog-user-project=pharmpos-bef59
+[debug] [2026-06-04T13:09:06.276Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions {"permissions":["datastore.databases.list","firebase.projects.get"]}
+[debug] [2026-06-04T13:09:06.369Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-06-04T13:09:06.369Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2026-06-04T13:09:07.722Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions 200
+[debug] [2026-06-04T13:09:07.722Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions {"permissions":["datastore.databases.list","firebase.projects.get"]}
+[debug] [2026-06-04T13:09:07.724Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:09:07.724Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:09:07.725Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases [none]
+[debug] [2026-06-04T13:09:08.277Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases 403
+[debug] [2026-06-04T13:09:08.277Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases {"error":{"code":403,"message":"Cloud Firestore API has not been used in project pharmpos-bef59 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=pharmpos-bef59 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"serviceTitle":"Cloud Firestore API","activationUrl":"https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=pharmpos-bef59","service":"firestore.googleapis.com","consumer":"projects/pharmpos-bef59","containerInfo":"pharmpos-bef59"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Cloud Firestore API has not been used in project pharmpos-bef59 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=pharmpos-bef59 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=pharmpos-bef59"}]}]}}
+[error] 
+[error] Error: Request to https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases had HTTP Error: 403, Cloud Firestore API has not been used in project pharmpos-bef59 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=pharmpos-bef59 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
+[debug] [2026-06-04T13:09:09.682Z] Error Context: {
+  "body": {
+    "error": {
+      "code": 403,
+      "message": "Cloud Firestore API has not been used in project pharmpos-bef59 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=pharmpos-bef59 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.",
+      "status": "PERMISSION_DENIED",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+          "reason": "SERVICE_DISABLED",
+          "domain": "googleapis.com",
+          "metadata": {
+            "serviceTitle": "Cloud Firestore API",
+            "activationUrl": "https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=pharmpos-bef59",
+            "service": "firestore.googleapis.com",
+            "consumer": "projects/pharmpos-bef59",
+            "containerInfo": "pharmpos-bef59"
+          }
+        },
+        {
+          "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+          "locale": "en-US",
+          "message": "Cloud Firestore API has not been used in project pharmpos-bef59 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=pharmpos-bef59 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."
+        },
+        {
+          "@type": "type.googleapis.com/google.rpc.Help",
+          "links": [
+            {
+              "description": "Google developers console API activation",
+              "url": "https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=pharmpos-bef59"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "response": {
+    "statusCode": 403
+  }
+}
+[debug] [2026-06-04T13:15:57.183Z] ----------------------------------------------------------------------
+[debug] [2026-06-04T13:15:57.196Z] Command:       /opt/homebrew/Cellar/node/24.3.0/bin/node /opt/homebrew/bin/firebase firestore:databases:list --project pharmpos-bef59
+[debug] [2026-06-04T13:15:57.196Z] CLI Version:   15.18.0
+[debug] [2026-06-04T13:15:57.197Z] Platform:      darwin
+[debug] [2026-06-04T13:15:57.197Z] Node Version:  v24.3.0
+[debug] [2026-06-04T13:15:57.197Z] Time:          Thu Jun 04 2026 13:15:57 GMT+0000 (Greenwich Mean Time)
+[debug] [2026-06-04T13:15:57.197Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-06-04T13:15:58.752Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-06-04T13:15:58.753Z] > authorizing via signed-in user (samuel.agbenorwu@gmail.com)
+[debug] [2026-06-04T13:15:58.753Z] [iam] checking project pharmpos-bef59 for permissions ["datastore.databases.list","firebase.projects.get"]
+[debug] [2026-06-04T13:15:58.754Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:15:58.754Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:15:58.754Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions [none]
+[debug] [2026-06-04T13:15:58.754Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions  x-goog-user-project=pharmpos-bef59
+[debug] [2026-06-04T13:15:58.754Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions {"permissions":["datastore.databases.list","firebase.projects.get"]}
+[debug] [2026-06-04T13:16:00.252Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions 200
+[debug] [2026-06-04T13:16:00.252Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions {"permissions":["datastore.databases.list","firebase.projects.get"]}
+[debug] [2026-06-04T13:16:00.253Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:16:00.254Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:16:00.254Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases [none]
+[debug] [2026-06-04T13:16:01.133Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases 200
+[debug] [2026-06-04T13:16:01.134Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases {"databases":[{"name":"projects/pharmpos-bef59/databases/(default)","uid":"00d864c7-258e-4174-a9db-373514ddc3f6","createTime":"2026-06-04T13:11:48.434964Z","updateTime":"2026-06-04T13:11:48.434964Z","locationId":"africa-south1","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2026-06-04T13:11:48.434964Z","appEngineIntegrationMode":"DISABLED","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"realtimeUpdatesMode":"REALTIME_UPDATES_MODE_ENABLED","etag":"IPWR3MPV7ZQDMOfnus7U7ZQD"}]}
+[info] ┌────────────────────────────────────────────────┬────────────────────┬────────────────────┐
+│ Database Name                                  │ Edition            │ Type               │
+├────────────────────────────────────────────────┼────────────────────┼────────────────────┤
+│ projects/pharmpos-bef59/databases/(default)    │ STANDARD           │ FIRESTORE_NATIVE   │
+└────────────────────────────────────────────────┴────────────────────┴────────────────────┘
+[debug] [2026-06-04T13:18:04.331Z] ----------------------------------------------------------------------
+[debug] [2026-06-04T13:18:04.338Z] Command:       /opt/homebrew/Cellar/node/24.3.0/bin/node /opt/homebrew/bin/firebase deploy --only firestore:rules,firestore:indexes --project pharmpos-bef59
+[debug] [2026-06-04T13:18:04.338Z] CLI Version:   15.18.0
+[debug] [2026-06-04T13:18:04.338Z] Platform:      darwin
+[debug] [2026-06-04T13:18:04.338Z] Node Version:  v24.3.0
+[debug] [2026-06-04T13:18:04.338Z] Time:          Thu Jun 04 2026 13:18:04 GMT+0000 (Greenwich Mean Time)
+[debug] [2026-06-04T13:18:04.338Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-06-04T13:18:05.489Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-06-04T13:18:05.490Z] > authorizing via signed-in user (samuel.agbenorwu@gmail.com)
+[debug] [2026-06-04T13:18:05.490Z] [iam] checking project pharmpos-bef59 for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-06-04T13:18:05.491Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:05.491Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:05.491Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions [none]
+[debug] [2026-06-04T13:18:05.491Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions  x-goog-user-project=pharmpos-bef59
+[debug] [2026-06-04T13:18:05.492Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-06-04T13:18:06.657Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions 200
+[debug] [2026-06-04T13:18:06.662Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[info] 
+[info] === Deploying to 'pharmpos-bef59'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-06-04T13:18:06.670Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:06.671Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:06.671Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/pharmpos-bef59/services/firestore.googleapis.com [none]
+[debug] [2026-06-04T13:18:06.672Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/pharmpos-bef59/services/firestore.googleapis.com  x-goog-user-project=pharmpos-bef59
+[debug] [2026-06-04T13:18:08.164Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/pharmpos-bef59/services/firestore.googleapis.com 200
+[debug] [2026-06-04T13:18:08.165Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/pharmpos-bef59/services/firestore.googleapis.com [omitted]
+[info] ✔  firestore: required API firestore.googleapis.com is enabled 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-06-04T13:18:08.178Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:08.178Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:08.179Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default) [none]
+[debug] [2026-06-04T13:18:10.078Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default) 200
+[debug] [2026-06-04T13:18:10.080Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default) {"name":"projects/pharmpos-bef59/databases/(default)","uid":"00d864c7-258e-4174-a9db-373514ddc3f6","createTime":"2026-06-04T13:11:48.434964Z","updateTime":"2026-06-04T13:11:48.434964Z","locationId":"africa-south1","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2026-06-04T13:11:48.434964Z","appEngineIntegrationMode":"DISABLED","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"realtimeUpdatesMode":"REALTIME_UPDATES_MODE_ENABLED","etag":"INSPp4HW7ZQDMOfnus7U7ZQD"}
+[info] i  firestore: reading indexes from firestore.indexes.json... 
+[info] i  cloud.firestore: checking firestore.rules for compilation errors... 
+[debug] [2026-06-04T13:18:10.091Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:10.091Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:10.091Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59:test [none]
+[debug] [2026-06-04T13:18:10.091Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59:test [omitted]
+[debug] [2026-06-04T13:18:10.855Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59:test 200
+[debug] [2026-06-04T13:18:10.855Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59:test {}
+[info] ✔  cloud.firestore: rules file firestore.rules compiled successfully 
+[debug] [2026-06-04T13:18:10.856Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:10.857Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:10.857Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59/releases pageSize=10&pageToken=
+[debug] [2026-06-04T13:18:11.177Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59/releases 200
+[debug] [2026-06-04T13:18:11.177Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59/releases {"releases":[{"name":"projects/pharmpos-bef59/releases/cloud.firestore","rulesetName":"projects/pharmpos-bef59/rulesets/0edff564-ab7f-49cd-a843-fddddd7cd98f","createTime":"2026-06-04T13:11:51.847528Z","updateTime":"2026-06-04T13:11:51.847528Z"}]}
+[debug] [2026-06-04T13:18:11.179Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:11.179Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:11.179Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59/rulesets/0edff564-ab7f-49cd-a843-fddddd7cd98f [none]
+[debug] [2026-06-04T13:18:11.930Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59/rulesets/0edff564-ab7f-49cd-a843-fddddd7cd98f 200
+[debug] [2026-06-04T13:18:11.930Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59/rulesets/0edff564-ab7f-49cd-a843-fddddd7cd98f [omitted]
+[info] i  firestore: uploading rules firestore.rules... 
+[debug] [2026-06-04T13:18:11.931Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:11.932Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:11.932Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59/rulesets [none]
+[debug] [2026-06-04T13:18:11.932Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59/rulesets [omitted]
+[debug] [2026-06-04T13:18:12.515Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59/rulesets 200
+[debug] [2026-06-04T13:18:12.516Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59/rulesets {"name":"projects/pharmpos-bef59/rulesets/99bfb7fc-e873-4bc5-9a1e-4a8cadb7b905","source":{"files":[{"content":"rules_version = '2';\n\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    function signedIn() {\n      return request.auth != null;\n    }\n\n    function rolePath() {\n      return /databases/$(database)/documents/roles/$(request.auth.uid);\n    }\n\n    function role() {\n      return signedIn() && exists(rolePath()) ? get(rolePath()).data.role : null;\n    }\n\n    function hasAnyRole(roles) {\n      return signedIn() && role() in roles;\n    }\n\n    function isOwner() {\n      return hasAnyRole(['OWNER']);\n    }\n\n    function isSysAdmin() {\n      return hasAnyRole(['SYS_ADMIN']);\n    }\n\n    function isManager() {\n      return hasAnyRole(['OWNER', 'STORE_MANAGER', 'SYS_ADMIN']);\n    }\n\n    function isWholesale() {\n      return hasAnyRole(['OWNER', 'STORE_MANAGER', 'WHOLESALE_STAFF', 'SYS_ADMIN']);\n    }\n\n    match /auditLogs/{logId} {\n      allow read: if hasAnyRole(['OWNER', 'STORE_MANAGER', 'SYS_ADMIN']);\n      allow create: if signedIn();\n      allow update, delete: if false;\n    }\n\n    match /users/{uid} {\n      allow read: if isSysAdmin() || isOwner() || request.auth.uid == uid;\n      allow create: if isSysAdmin() || isOwner();\n      allow update: if isSysAdmin() || isOwner()\n        || (request.auth.uid == uid\n          && request.resource.data.diff(resource.data).affectedKeys()\n            .hasOnly(['last_login', 'failed_attempts']));\n      allow delete: if false;\n    }\n\n    match /roles/{uid} {\n      allow read: if signedIn() && (request.auth.uid == uid || isSysAdmin() || isOwner());\n      allow write: if isSysAdmin() || isOwner();\n      allow delete: if false;\n    }\n\n    match /settings/{settingKey} {\n      allow read: if signedIn();\n      allow write: if isSysAdmin() || isOwner();\n    }\n\n    match /products/{productId} {\n      allow read: if signedIn();\n      allow write: if isManager();\n      allow delete: if false;\n    }\n\n    match /batches/{batchId} {\n      allow read: if signedIn();\n      allow write: if isManager();\n      allow delete: if false;\n    }\n\n    match /batchBarcodes/{barcodeId} {\n      allow read: if signedIn();\n      allow write: if isManager();\n      allow delete: if false;\n    }\n\n    match /stockTransactions/{txId} {\n      allow read: if signedIn();\n      allow create: if signedIn();\n      allow update, delete: if false;\n    }\n\n    match /saleTransactions/{saleId} {\n      allow read: if signedIn();\n      allow create: if hasAnyRole(['OWNER', 'STORE_MANAGER', 'RETAIL_STAFF', 'WHOLESALE_STAFF', 'SYS_ADMIN']);\n      allow update: if isManager();\n      allow delete: if false;\n    }\n\n    match /saleLineItems/{itemId} {\n      allow read: if signedIn();\n      allow create: if hasAnyRole(['OWNER', 'STORE_MANAGER', 'RETAIL_STAFF', 'WHOLESALE_STAFF', 'SYS_ADMIN']);\n      allow update, delete: if false;\n    }\n\n    match /customers/{customerId} {\n      allow read: if signedIn();\n      allow write: if isWholesale();\n      allow delete: if false;\n    }\n\n    match /suppliers/{supplierId} {\n      allow read: if signedIn();\n      allow write: if isManager();\n      allow delete: if false;\n    }\n\n    match /purchaseOrders/{poId} {\n      allow read: if signedIn();\n      allow write: if isManager();\n      allow delete: if false;\n    }\n\n    match /goodsReceivedNotes/{grnId} {\n      allow read: if signedIn();\n      allow write: if isManager();\n      allow delete: if false;\n    }\n\n    match /documents/{docId} {\n      allow read, create: if isWholesale();\n      allow update: if isWholesale()\n        && !(request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])\n          && request.resource.data.status == 'void'\n          && !isManager());\n      allow delete: if false;\n    }\n\n    match /counters/{counterId} {\n      allow read: if signedIn();\n      allow write: if isWholesale();\n      allow delete: if false;\n    }\n\n    match /reorderAlerts/{alertId} {\n      allow read: if signedIn();\n      allow write: if isManager();\n      allow delete: if false;\n    }\n  }\n}\n","name":"firestore.rules"}]},"createTime":"2026-06-04T13:18:12.604223Z","metadata":{"services":["cloud.firestore"]}}
+[debug] [2026-06-04T13:18:12.516Z] [rules] created ruleset projects/pharmpos-bef59/rulesets/99bfb7fc-e873-4bc5-9a1e-4a8cadb7b905
+[info] i  firestore: deploying indexes... 
+[debug] [2026-06-04T13:18:12.520Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:12.520Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:12.521Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/-/indexes [none]
+[debug] [2026-06-04T13:18:13.199Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/-/indexes 200
+[debug] [2026-06-04T13:18:13.199Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/-/indexes {}
+[debug] [2026-06-04T13:18:13.200Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:13.200Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:13.200Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/-/fields?filter=indexConfig.usesAncestorConfig=false OR ttlConfig:* [none]
+[debug] [2026-06-04T13:18:13.957Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/-/fields?filter=indexConfig.usesAncestorConfig=false OR ttlConfig:* 200
+[debug] [2026-06-04T13:18:13.958Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/-/fields?filter=indexConfig.usesAncestorConfig=false OR ttlConfig:* {"fields":[{"name":"projects/pharmpos-bef59/databases/(default)/collectionGroups/__default__/fields/*","indexConfig":{"indexes":[{"queryScope":"COLLECTION","fields":[{"fieldPath":"*","order":"ASCENDING"}],"state":"READY"},{"queryScope":"COLLECTION","fields":[{"fieldPath":"*","order":"DESCENDING"}],"state":"READY"},{"queryScope":"COLLECTION","fields":[{"fieldPath":"*","arrayConfig":"CONTAINS"}],"state":"READY"}]}}]}
+[debug] [2026-06-04T13:18:13.958Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:13.959Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:13.960Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default) [none]
+[debug] [2026-06-04T13:18:14.287Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default) 200
+[debug] [2026-06-04T13:18:14.287Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default) {"name":"projects/pharmpos-bef59/databases/(default)","uid":"00d864c7-258e-4174-a9db-373514ddc3f6","createTime":"2026-06-04T13:11:48.434964Z","updateTime":"2026-06-04T13:11:48.434964Z","locationId":"africa-south1","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2026-06-04T13:11:48.434964Z","appEngineIntegrationMode":"DISABLED","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"realtimeUpdatesMode":"REALTIME_UPDATES_MODE_ENABLED","etag":"IP+eqIPW7ZQDMKWciYPW7ZQD"}
+[debug] [2026-06-04T13:18:14.287Z] Creating new index: {"collectionGroup":"batches","queryScope":"COLLECTION","fields":[{"fieldPath":"product_id","order":"ASCENDING"},{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"expiry_date","order":"ASCENDING"}]}
+[debug] [2026-06-04T13:18:14.287Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:14.288Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:14.288Z] >>> [apiv2][query] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/batches/indexes [none]
+[debug] [2026-06-04T13:18:14.288Z] >>> [apiv2][body] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/batches/indexes {"fields":[{"fieldPath":"product_id","order":"ASCENDING"},{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"expiry_date","order":"ASCENDING"}],"queryScope":"COLLECTION"}
+[debug] [2026-06-04T13:18:15.034Z] <<< [apiv2][status] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/batches/indexes 200
+[debug] [2026-06-04T13:18:15.034Z] <<< [apiv2][body] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/batches/indexes {"name":"projects/pharmpos-bef59/databases/(default)/operations/S0U0aFhqT2dBQ0lDDCoDIGI3NTU0NzcyMDYyOC02OWFiLTY1NTQtZWZiZS00OGE0NjI0OSQac2VuaWxlcGlwCQpBEg","metadata":{"@type":"type.googleapis.com/google.firestore.admin.v1.IndexOperationMetadata","startTime":"2026-06-04T13:18:15.108041Z","index":"projects/pharmpos-bef59/databases/(default)/collectionGroups/batches/indexes/CICAgOjXh4EK","state":"INITIALIZING"}}
+[debug] [2026-06-04T13:18:15.034Z] Creating new index: {"collectionGroup":"batches","queryScope":"COLLECTION","fields":[{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"expiry_date","order":"ASCENDING"}]}
+[debug] [2026-06-04T13:18:15.034Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:15.035Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:15.035Z] >>> [apiv2][query] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/batches/indexes [none]
+[debug] [2026-06-04T13:18:15.035Z] >>> [apiv2][body] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/batches/indexes {"fields":[{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"expiry_date","order":"ASCENDING"}],"queryScope":"COLLECTION"}
+[debug] [2026-06-04T13:18:15.579Z] <<< [apiv2][status] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/batches/indexes 200
+[debug] [2026-06-04T13:18:15.579Z] <<< [apiv2][body] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/batches/indexes {"name":"projects/pharmpos-bef59/databases/(default)/operations/S01vcFVpSmdBQ0lDDCoDIDI3NWM3Yzk0MjRkYi01OTk5LTYzNTQtMDNjOC1hOTc5OTg1YSQac2VuaWxlcGlwCQpBEg","metadata":{"@type":"type.googleapis.com/google.firestore.admin.v1.IndexOperationMetadata","startTime":"2026-06-04T13:18:15.645250Z","index":"projects/pharmpos-bef59/databases/(default)/collectionGroups/batches/indexes/CICAgJiUpoMK","state":"INITIALIZING"}}
+[debug] [2026-06-04T13:18:15.579Z] Creating new index: {"collectionGroup":"saleTransactions","queryScope":"COLLECTION","fields":[{"fieldPath":"sale_date","order":"DESCENDING"},{"fieldPath":"channel","order":"ASCENDING"}]}
+[debug] [2026-06-04T13:18:15.579Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:15.579Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:15.579Z] >>> [apiv2][query] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/saleTransactions/indexes [none]
+[debug] [2026-06-04T13:18:15.580Z] >>> [apiv2][body] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/saleTransactions/indexes {"fields":[{"fieldPath":"sale_date","order":"DESCENDING"},{"fieldPath":"channel","order":"ASCENDING"}],"queryScope":"COLLECTION"}
+[debug] [2026-06-04T13:18:16.357Z] <<< [apiv2][status] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/saleTransactions/indexes 200
+[debug] [2026-06-04T13:18:16.361Z] <<< [apiv2][body] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/saleTransactions/indexes {"name":"projects/pharmpos-bef59/databases/(default)/operations/S0E0MW1pSmdBQ0lDDCoDIGIyYmJhNTk5ZWJkNy04OTQ4LWVlNDQtZGE5Yy00YjVmOTEwZiQac2VuaWxlcGlwCQpBEg","metadata":{"@type":"type.googleapis.com/google.firestore.admin.v1.IndexOperationMetadata","startTime":"2026-06-04T13:18:16.361329Z","index":"projects/pharmpos-bef59/databases/(default)/collectionGroups/saleTransactions/indexes/CICAgJim14AK","state":"INITIALIZING"}}
+[debug] [2026-06-04T13:18:16.361Z] Creating new index: {"collectionGroup":"documents","queryScope":"COLLECTION","fields":[{"fieldPath":"type","order":"ASCENDING"},{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"created_at","order":"DESCENDING"}]}
+[debug] [2026-06-04T13:18:16.362Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:16.362Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:16.363Z] >>> [apiv2][query] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/documents/indexes [none]
+[debug] [2026-06-04T13:18:16.363Z] >>> [apiv2][body] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/documents/indexes {"fields":[{"fieldPath":"type","order":"ASCENDING"},{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"created_at","order":"DESCENDING"}],"queryScope":"COLLECTION"}
+[debug] [2026-06-04T13:18:17.398Z] <<< [apiv2][status] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/documents/indexes 200
+[debug] [2026-06-04T13:18:17.399Z] <<< [apiv2][body] POST https://firestore.googleapis.com/v1/projects/pharmpos-bef59/databases/(default)/collectionGroups/documents/indexes {"name":"projects/pharmpos-bef59/databases/(default)/operations/S0lvOUZqSmdBQ0lDDCoDIDZjY2FiMDgwYzgyZi03OWJhLWY3NDQtN2FjYy00MTM2NGFiMCQac2VuaWxlcGlwCQpBEg","metadata":{"@type":"type.googleapis.com/google.firestore.admin.v1.IndexOperationMetadata","startTime":"2026-06-04T13:18:17.427950Z","index":"projects/pharmpos-bef59/databases/(default)/collectionGroups/documents/indexes/CICAgJjF9oIK","state":"INITIALIZING"}}
+[info] ✔  firestore: deployed indexes in firestore.indexes.json successfully for (default) database 
+[debug] [2026-06-04T13:18:17.404Z] [rules] releasing cloud.firestore with ruleset projects/pharmpos-bef59/rulesets/99bfb7fc-e873-4bc5-9a1e-4a8cadb7b905
+[debug] [2026-06-04T13:18:17.405Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:17.406Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:17.406Z] >>> [apiv2][query] PATCH https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59/releases/cloud.firestore [none]
+[debug] [2026-06-04T13:18:17.406Z] >>> [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59/releases/cloud.firestore {"release":{"name":"projects/pharmpos-bef59/releases/cloud.firestore","rulesetName":"projects/pharmpos-bef59/rulesets/99bfb7fc-e873-4bc5-9a1e-4a8cadb7b905"}}
+[debug] [2026-06-04T13:18:18.047Z] <<< [apiv2][status] PATCH https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59/releases/cloud.firestore 200
+[debug] [2026-06-04T13:18:18.047Z] <<< [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/pharmpos-bef59/releases/cloud.firestore {"name":"projects/pharmpos-bef59/releases/cloud.firestore","rulesetName":"projects/pharmpos-bef59/rulesets/99bfb7fc-e873-4bc5-9a1e-4a8cadb7b905","createTime":"2026-06-04T13:11:51.847528Z","updateTime":"2026-06-04T13:18:18.135112Z"}
+[debug] [2026-06-04T13:18:18.047Z] [rules] updated release projects/pharmpos-bef59/releases/cloud.firestore
+[info] ✔  firestore: released rules firestore.rules to cloud.firestore 
+[info] 
+[info] ✔  Deploy complete! 
+[info] 
+[info] Project Console: https://console.firebase.google.com/project/pharmpos-bef59/overview
+[debug] [2026-06-04T13:18:34.862Z] ----------------------------------------------------------------------
+[debug] [2026-06-04T13:18:34.870Z] Command:       /opt/homebrew/Cellar/node/24.3.0/bin/node /opt/homebrew/bin/firebase auth:export /private/tmp/pharmpos-auth-users.json --format=json --project pharmpos-bef59
+[debug] [2026-06-04T13:18:34.870Z] CLI Version:   15.18.0
+[debug] [2026-06-04T13:18:34.870Z] Platform:      darwin
+[debug] [2026-06-04T13:18:34.870Z] Node Version:  v24.3.0
+[debug] [2026-06-04T13:18:34.870Z] Time:          Thu Jun 04 2026 13:18:34 GMT+0000 (Greenwich Mean Time)
+[debug] [2026-06-04T13:18:34.870Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-06-04T13:18:35.005Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-06-04T13:18:35.006Z] > authorizing via signed-in user (samuel.agbenorwu@gmail.com)
+[debug] [2026-06-04T13:18:35.006Z] [iam] checking project pharmpos-bef59 for permissions ["firebase.projects.get","firebaseauth.users.get"]
+[debug] [2026-06-04T13:18:35.006Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:35.006Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:35.007Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions [none]
+[debug] [2026-06-04T13:18:35.007Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions  x-goog-user-project=pharmpos-bef59
+[debug] [2026-06-04T13:18:35.007Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions {"permissions":["firebase.projects.get","firebaseauth.users.get"]}
+[debug] [2026-06-04T13:18:36.334Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions 200
+[debug] [2026-06-04T13:18:36.335Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pharmpos-bef59:testIamPermissions {"permissions":["firebase.projects.get","firebaseauth.users.get"]}
+[info] Exporting accounts to /private/tmp/pharmpos-auth-users.json
+[debug] [2026-06-04T13:18:36.337Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:36.337Z] Checked if tokens are valid: true, expires at: 1780582145263
+[debug] [2026-06-04T13:18:36.338Z] >>> [apiv2][query] POST https://www.googleapis.com/identitytoolkit/v3/relyingparty/downloadAccount [none]
+[debug] [2026-06-04T13:18:36.338Z] >>> [apiv2][body] POST https://www.googleapis.com/identitytoolkit/v3/relyingparty/downloadAccount {"targetProjectId":"pharmpos-bef59","maxResults":1000}
+[debug] [2026-06-04T13:18:36.891Z] <<< [apiv2][status] POST https://www.googleapis.com/identitytoolkit/v3/relyingparty/downloadAccount 200
+[debug] [2026-06-04T13:18:36.892Z] <<< [apiv2][body] POST https://www.googleapis.com/identitytoolkit/v3/relyingparty/downloadAccount [omitted]
+[info] ✔  Exported 1 account(s) successfully. 

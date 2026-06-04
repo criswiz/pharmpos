@@ -1,0 +1,146 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function rolePath() {
+      return /databases/$(database)/documents/roles/$(request.auth.uid);
+    }
+
+    function role() {
+      return signedIn() && exists(rolePath()) ? get(rolePath()).data.role : null;
+    }
+
+    function hasAnyRole(roles) {
+      return signedIn() && role() in roles;
+    }
+
+    function isOwner() {
+      return hasAnyRole(['OWNER']);
+    }
+
+    function isSysAdmin() {
+      return hasAnyRole(['SYS_ADMIN']);
+    }
+
+    function isManager() {
+      return hasAnyRole(['OWNER', 'STORE_MANAGER', 'SYS_ADMIN']);
+    }
+
+    function isWholesale() {
+      return hasAnyRole(['OWNER', 'STORE_MANAGER', 'WHOLESALE_STAFF', 'SYS_ADMIN']);
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if hasAnyRole(['OWNER', 'STORE_MANAGER', 'SYS_ADMIN']);
+      allow create: if signedIn();
+      allow update, delete: if false;
+    }
+
+    match /users/{uid} {
+      allow read: if isSysAdmin() || isOwner() || request.auth.uid == uid;
+      allow create: if isSysAdmin() || isOwner();
+      allow update: if isSysAdmin() || isOwner()
+        || (request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['last_login', 'failed_attempts']));
+      allow delete: if false;
+    }
+
+    match /roles/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isSysAdmin() || isOwner());
+      allow write: if isSysAdmin() || isOwner();
+      allow delete: if false;
+    }
+
+    match /settings/{settingKey} {
+      allow read: if signedIn();
+      allow write: if isSysAdmin() || isOwner();
+    }
+
+    match /products/{productId} {
+      allow read: if signedIn();
+      allow write: if isManager();
+      allow delete: if false;
+    }
+
+    match /batches/{batchId} {
+      allow read: if signedIn();
+      allow write: if isManager();
+      allow delete: if false;
+    }
+
+    match /batchBarcodes/{barcodeId} {
+      allow read: if signedIn();
+      allow write: if isManager();
+      allow delete: if false;
+    }
+
+    match /stockTransactions/{txId} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update, delete: if false;
+    }
+
+    match /saleTransactions/{saleId} {
+      allow read: if signedIn();
+      allow create: if hasAnyRole(['OWNER', 'STORE_MANAGER', 'RETAIL_STAFF', 'WHOLESALE_STAFF', 'SYS_ADMIN']);
+      allow update: if isManager();
+      allow delete: if false;
+    }
+
+    match /saleLineItems/{itemId} {
+      allow read: if signedIn();
+      allow create: if hasAnyRole(['OWNER', 'STORE_MANAGER', 'RETAIL_STAFF', 'WHOLESALE_STAFF', 'SYS_ADMIN']);
+      allow update, delete: if false;
+    }
+
+    match /customers/{customerId} {
+      allow read: if signedIn();
+      allow write: if isWholesale();
+      allow delete: if false;
+    }
+
+    match /suppliers/{supplierId} {
+      allow read: if signedIn();
+      allow write: if isManager();
+      allow delete: if false;
+    }
+
+    match /purchaseOrders/{poId} {
+      allow read: if signedIn();
+      allow write: if isManager();
+      allow delete: if false;
+    }
+
+    match /goodsReceivedNotes/{grnId} {
+      allow read: if signedIn();
+      allow write: if isManager();
+      allow delete: if false;
+    }
+
+    match /documents/{docId} {
+      allow read, create: if isWholesale();
+      allow update: if isWholesale()
+        && !(request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])
+          && request.resource.data.status == 'void'
+          && !isManager());
+      allow delete: if false;
+    }
+
+    match /counters/{counterId} {
+      allow read: if signedIn();
+      allow write: if isWholesale();
+      allow delete: if false;
+    }
+
+    match /reorderAlerts/{alertId} {
+      allow read: if signedIn();
+      allow write: if isManager();
+      allow delete: if false;
+    }
+  }
+}
