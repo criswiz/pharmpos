@@ -54,10 +54,9 @@ secrets or environment values.
 
 ## Next Up
 
-1. Customer management (create, edit, credit limits for wholesale).
-2. Wholesale orders module (channel-specific POS, invoice generation).
-3. Reports (sales by period, stock valuation, expiry, audit log export).
-4. Trace / audit log viewer.
+1. Reports (sales by period, stock valuation, expiry report — with CSV export).
+2. Wholesale orders module (channel-specific POS, credit-based payments, invoice).
+3. GRN → PO status auto-link (when GRN.po_number_snapshot matches a PO, update it to "received").
 
 ## Verification
 
@@ -80,6 +79,18 @@ secrets or environment values.
   batch decrements must reference a new sale in the same transaction. Verified
   with `bun run lint`, `bun run typecheck`, `bun run build`, and the Firestore
   emulator.
+- 2026-06-04: Customers and Drug Traceability.
+  Customers: full CRUD (name, phone, email, type: retail/wholesale/both, credit limit,
+  current balance, address, notes, active status). Over-limit warning banner on the
+  list page. subscribeCustomers (ordered by name) + createCustomer + updateCustomer
+  with audit logs. Firestore rule (customers allow write: isWholesale) already existed.
+  Traceability: master-detail batch lifecycle viewer. Search filters all batches in
+  real-time by batch number, product name, barcode, or supplier name. Each result card
+  shows quantity received/remaining, expiry date, utilisation %, supplier, GRN reference,
+  cost and retail prices. Clicking a card expands an inline movement history panel
+  (reuses subscribeBatchMovements) showing every receipt/sale/adjustment/recall/return
+  with signed quantity changes and running balances. Limited to 50 results per search.
+  Verified with lint, typecheck, build.
 - 2026-06-04: Dashboard, Settings, and Void workflow.
   Dashboard: real-time stats (today's retail sales, 7-day revenue, low-stock count,
   expiry-risk count), Recharts BarChart for 7-day daily revenue, recent-sales list,

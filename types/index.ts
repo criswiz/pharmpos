@@ -214,6 +214,22 @@ export interface ReturnLine {
   line_total: number;
 }
 
+export interface Customer {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  customer_type: "retail" | "wholesale" | "both";
+  credit_limit: number;
+  current_balance: number;
+  address?: string;
+  notes?: string;
+  is_active: boolean;
+  created_at: FirestoreDate;
+  updated_at: FirestoreDate;
+  created_by: string;
+}
+
 export interface Supplier {
   id: string;
   name: string;
