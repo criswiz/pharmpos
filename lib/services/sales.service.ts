@@ -1,12 +1,20 @@
 import {
+  Timestamp,
   collection,
   doc,
+  getDocs,
+  getDoc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
   runTransaction,
   serverTimestamp,
+  where,
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase/client";
 import { allocateFefoStock, sellableFefoBatches } from "@/lib/utils/fefo";
-import type { Batch, PaymentMethod, PosCartItem } from "@/types";
+import type { Batch, PaymentMethod, PosCartItem, ReceiptData, ReceiptLine, SaleTransaction } from "@/types";
 
 interface SaleActor {
   uid: string;
@@ -25,6 +33,7 @@ export interface RetailSaleResult {
   sale_id: string;
   total: number;
   change: number;
+  receipt: ReceiptData;
 }
 
 function money(value: number) {
@@ -149,6 +158,8 @@ export async function checkoutRetailSale(
     }
 
     const change = money(tendered - total);
+    const itemCount = input.items.reduce((sum, item) => sum + item.quantity, 0);
+
     transaction.set(saleRef, {
       sale_date: serverTimestamp(),
       channel: "retail",
@@ -159,7 +170,7 @@ export async function checkoutRetailSale(
       payment_method: input.payment_method,
       amount_tendered: tendered,
       change,
-      item_count: input.items.reduce((sum, item) => sum + item.quantity, 0),
+      item_count: itemCount,
       line_count: saleLines.length,
       created_by: actor.uid,
       created_by_name_snapshot: actor.name,
@@ -176,10 +187,91 @@ export async function checkoutRetailSale(
       details: {
         total,
         payment_method: input.payment_method,
-        item_count: input.items.reduce((sum, item) => sum + item.quantity, 0),
+        item_count: itemCount,
       },
     });
 
-    return { sale_id: saleRef.id, total, change };
+    const receipt: ReceiptData = {
+      sale_id: saleRef.id,
+      sale_date: new Date(),
+      cashier_name: actor.name,
+      lines: saleLines.map(
+        (line): ReceiptLine => ({
+          product_name: line.item.product_name_snapshot,
+          batch_number: line.batch.batch_number,
+          quantity: line.quantity,
+          unit_price: line.unit_price,
+          line_total: line.line_total,
+        }),
+      ),
+      total,
+      payment_method: input.payment_method,
+      amount_tendered: tendered,
+      change,
+      item_count: itemCount,
+    };
+
+    return { sale_id: saleRef.id, total, change, receipt };
   });
+}
+
+export function subscribeRecentRetailSales(
+  onData: (sales: SaleTransaction[]) => void,
+  onError: () => void,
+  limitCount = 10,
+): () => void {
+  const db = getFirebaseDb();
+  return onSnapshot(
+    query(
+      collection(db, "saleTransactions"),
+      where("channel", "==", "retail"),
+      orderBy("sale_date", "desc"),
+      limit(limitCount),
+    ),
+    (snapshot) => {
+      onData(
+        snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as SaleTransaction),
+      );
+    },
+    () => onError(),
+  );
+}
+
+export async function getSaleReceipt(saleId: string): Promise<ReceiptData | null> {
+  const db = getFirebaseDb();
+  const [saleSnap, itemsSnap] = await Promise.all([
+    getDoc(doc(db, "saleTransactions", saleId)),
+    getDocs(query(collection(db, "saleLineItems"), where("sale_id", "==", saleId))),
+  ]);
+
+  if (!saleSnap.exists()) return null;
+
+  const sale = saleSnap.data() as Omit<SaleTransaction, "id">;
+  const saleDate =
+    sale.sale_date instanceof Timestamp
+      ? sale.sale_date.toDate()
+      : (sale.sale_date as Date);
+
+  const lines: ReceiptLine[] = itemsSnap.docs.map((d) => {
+    const data = d.data();
+    return {
+      product_name: data.product_name_snapshot as string,
+      batch_number: data.batch_number_snapshot as string,
+      quantity: data.quantity as number,
+      unit_price: data.unit_price as number,
+      line_total: data.line_total as number,
+    };
+  });
+
+  return {
+    sale_id: saleId,
+    sale_date: saleDate,
+    cashier_name: sale.created_by_name_snapshot,
+    lines,
+    total: sale.total,
+    payment_method: sale.payment_method,
+    amount_tendered: sale.amount_tendered,
+    change: sale.change,
+    item_count: sale.item_count,
+  };
 }

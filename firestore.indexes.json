@@ -26,6 +26,14 @@
       ]
     },
     {
+      "collectionGroup": "saleTransactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "channel", "order": "ASCENDING" },
+        { "fieldPath": "sale_date", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "documents",
       "queryScope": "COLLECTION",
       "fields": [

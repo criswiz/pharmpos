@@ -54,11 +54,10 @@ secrets or environment values.
 
 ## Next Up
 
-1. Add printable retail receipts and recent-sale lookup.
-2. Add discounts/approval thresholds, split payments, returns, and void workflows.
-3. Add batch stock adjustments, recall controls, and movement history.
-4. Build suppliers and full purchase order/GRN workflows around batch receiving.
-5. Replace scaffold dashboard metrics with Firestore-backed aggregates.
+1. Add discounts/approval thresholds, split payments, returns, and void workflows.
+2. Add batch stock adjustments, recall controls, and movement history.
+3. Build suppliers and full purchase order/GRN workflows around batch receiving.
+4. Replace scaffold dashboard metrics with Firestore-backed aggregates.
 
 ## Verification
 
@@ -81,3 +80,10 @@ secrets or environment values.
   batch decrements must reference a new sale in the same transaction. Verified
   with `bun run lint`, `bun run typecheck`, `bun run build`, and the Firestore
   emulator.
+- 2026-06-04: Added printable retail receipts and recent-sale lookup. `ReceiptData`
+  is returned directly from the checkout transaction (no extra read). `ReceiptModal`
+  opens a styled 80mm thermal-print window via `window.open`. Recent sales list
+  subscribes in real time via `subscribeRecentRetailSales`; each row has a Receipt
+  icon button that fetches line items with `getSaleReceipt` and reopens the modal.
+  Added composite Firestore index `channel ASC + sale_date DESC` for the query.
+  Verified with `bun run lint`, `bun run typecheck`, `bun run build`.

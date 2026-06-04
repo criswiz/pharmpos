@@ -112,3 +112,40 @@ export interface PharmacyInfo {
   fda_number: string;
   logo_url: string;
 }
+
+export interface ReceiptLine {
+  product_name: string;
+  batch_number: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+}
+
+export interface ReceiptData {
+  sale_id: string;
+  sale_date: Date;
+  cashier_name: string;
+  lines: ReceiptLine[];
+  total: number;
+  payment_method: PaymentMethod;
+  amount_tendered: number;
+  change: number;
+  item_count: number;
+}
+
+export interface SaleTransaction {
+  id: string;
+  sale_date: FirestoreDate;
+  channel: "retail" | "wholesale";
+  status: "completed" | "voided";
+  subtotal: number;
+  discount_total: number;
+  total: number;
+  payment_method: PaymentMethod;
+  amount_tendered: number;
+  change: number;
+  item_count: number;
+  line_count: number;
+  created_by: string;
+  created_by_name_snapshot: string;
+}

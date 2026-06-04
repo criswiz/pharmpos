@@ -9,6 +9,7 @@ import {
   Pause,
   Play,
   Plus,
+  Receipt,
   Search,
   ShoppingCart,
   Smartphone,
@@ -20,17 +21,31 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { checkoutRetailSale } from "@/lib/services/sales.service";
+import { checkoutRetailSale, getSaleReceipt, subscribeRecentRetailSales } from "@/lib/services/sales.service";
 import { subscribeBatches, subscribeProducts } from "@/lib/services/inventory.service";
 import { allocateFefoStock } from "@/lib/utils/fefo";
 import { usePosCart } from "@/stores/pos-cart";
-import type { Batch, PaymentMethod, Product } from "@/types";
+import { ReceiptModal } from "@/components/pos/receipt-modal";
+import type { Batch, PaymentMethod, Product, ReceiptData, SaleTransaction } from "@/types";
 
 const currency = new Intl.NumberFormat("en-GH", {
   style: "currency",
   currency: "GHS",
 });
 const number = new Intl.NumberFormat("en-GH");
+const timeFormat = new Intl.DateTimeFormat("en-GH", {
+  hour: "2-digit",
+  minute: "2-digit",
+  day: "2-digit",
+  month: "short",
+});
+
+function toDate(value: SaleTransaction["sale_date"]) {
+  if (!value) return new Date();
+  return typeof (value as { toDate?: () => Date }).toDate === "function"
+    ? (value as { toDate: () => Date }).toDate()
+    : (value as Date);
+}
 
 export function RetailPos() {
   const { user, appUser, role } = useAuth();
@@ -46,6 +61,9 @@ export function RetailPos() {
   const [cashReceived, setCashReceived] = useState("");
   const [checkingOut, setCheckingOut] = useState(false);
   const [online, setOnline] = useState(true);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const [recentSales, setRecentSales] = useState<SaleTransaction[]>([]);
+  const [fetchingReceipt, setFetchingReceipt] = useState<string | null>(null);
   const {
     items,
     parkedSales,
@@ -99,6 +117,10 @@ export function RetailPos() {
             setBatchesLoading(false);
             handleError("Batch stock could not be loaded. Check Firestore access.");
           },
+        ),
+        subscribeRecentRetailSales(
+          (sales) => setRecentSales(sales),
+          () => {},
         ),
       );
     } catch {
@@ -262,14 +284,7 @@ export function RetailPos() {
       );
       clearCart();
       setCashReceived("");
-      toast({
-        title: `Sale completed: ${currency.format(result.total)}`,
-        description:
-          result.change > 0
-            ? `Change due: ${currency.format(result.change)}. Reference: ${result.sale_id}`
-            : `Reference: ${result.sale_id}`,
-        variant: "success",
-      });
+      setReceiptData(result.receipt);
       searchRef.current?.focus();
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : "";
@@ -284,8 +299,28 @@ export function RetailPos() {
     }
   }
 
+  async function handleReprintSale(saleId: string) {
+    setFetchingReceipt(saleId);
+    try {
+      const receipt = await getSaleReceipt(saleId);
+      if (receipt) {
+        setReceiptData(receipt);
+      } else {
+        toast({ title: "Receipt not found", description: "The sale record could not be loaded.", variant: "error" });
+      }
+    } catch {
+      toast({ title: "Could not load receipt", description: "Check your connection and try again.", variant: "error" });
+    } finally {
+      setFetchingReceipt(null);
+    }
+  }
+
   return (
     <div className="space-y-5">
+      {receiptData ? (
+        <ReceiptModal receipt={receiptData} onClose={() => setReceiptData(null)} />
+      ) : null}
+
       <header className="flex flex-col gap-4 border-b border-emerald-900/10 pb-5 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase text-lime-700">Retail workflow</p>
@@ -417,6 +452,45 @@ export function RetailPos() {
                         className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 text-zinc-600 hover:bg-zinc-50"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {recentSales.length > 0 ? (
+            <section className="overflow-hidden rounded-md border border-emerald-900/10 bg-white shadow-sm">
+              <header className="flex items-center justify-between border-b border-emerald-900/10 px-4 py-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-emerald-950">Recent sales</h2>
+                  <p className="mt-1 text-xs text-zinc-500">Last {recentSales.length} completed retail transactions</p>
+                </div>
+              </header>
+              <div className="divide-y divide-zinc-100">
+                {recentSales.map((sale) => (
+                  <div key={sale.id} className="flex items-center justify-between gap-4 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-mono text-[11px] text-zinc-400">
+                        {sale.id.slice(-10).toUpperCase()}
+                      </p>
+                      <p className="mt-0.5 text-xs text-zinc-500">
+                        {timeFormat.format(toDate(sale.sale_date))} · {sale.item_count} item{sale.item_count === 1 ? "" : "s"} · {PAYMENT_LABEL[sale.payment_method] ?? sale.payment_method}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <p className="text-sm font-semibold text-emerald-950">
+                        {currency.format(sale.total)}
+                      </p>
+                      <button
+                        type="button"
+                        title="View receipt"
+                        disabled={fetchingReceipt === sale.id}
+                        onClick={() => handleReprintSale(sale.id)}
+                        className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-emerald-700 disabled:opacity-50"
+                      >
+                        <Receipt className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>
@@ -614,6 +688,12 @@ export function RetailPos() {
     </div>
   );
 }
+
+const PAYMENT_LABEL: Record<string, string> = {
+  cash: "Cash",
+  momo: "MoMo",
+  card: "Card",
+};
 
 function PaymentButton({
   active,
