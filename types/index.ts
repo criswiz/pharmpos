@@ -210,6 +210,75 @@ export interface ReturnLine {
   line_total: number;
 }
 
+export interface Supplier {
+  id: string;
+  name: string;
+  supplier_code?: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+  is_active: boolean;
+  created_at: FirestoreDate;
+  updated_at: FirestoreDate;
+  created_by: string;
+}
+
+export interface PurchaseOrderLine {
+  product_id: string;
+  product_name_snapshot: string;
+  quantity_ordered: number;
+  unit_cost: number;
+  line_total: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  po_number: string;
+  supplier_id: string;
+  supplier_name_snapshot: string;
+  order_date: FirestoreDate;
+  expected_delivery_date?: FirestoreDate;
+  status: "draft" | "sent" | "partially_received" | "received" | "cancelled";
+  line_items: PurchaseOrderLine[];
+  total_value: number;
+  notes?: string;
+  created_at: FirestoreDate;
+  created_by: string;
+  created_by_name_snapshot: string;
+}
+
+export interface GrnLine {
+  product_id: string;
+  product_name_snapshot: string;
+  batch_id: string;
+  batch_number: string;
+  expiry_date: string;
+  quantity_received: number;
+  cost_price: number;
+  retail_price: number;
+  wholesale_price: number;
+  shop_context: "retail" | "wholesale" | "shared";
+}
+
+export interface GoodsReceivedNote {
+  id: string;
+  grn_number: string;
+  po_id?: string;
+  po_number_snapshot?: string;
+  supplier_id?: string;
+  supplier_name_snapshot?: string;
+  received_date: FirestoreDate;
+  status: "completed";
+  lines: GrnLine[];
+  total_value: number;
+  notes?: string;
+  created_at: FirestoreDate;
+  created_by: string;
+  created_by_name_snapshot: string;
+}
+
 export interface SaleReturn {
   id: string;
   original_sale_id: string;

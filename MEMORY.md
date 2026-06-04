@@ -54,9 +54,9 @@ secrets or environment values.
 
 ## Next Up
 
-1. Build suppliers and full purchase order/GRN workflows around batch receiving.
-2. Replace scaffold dashboard metrics with Firestore-backed aggregates.
-3. Void workflow for completed sales (manager-only, soft-delete with audit).
+1. Replace scaffold dashboard metrics with Firestore-backed aggregates.
+2. Void workflow for completed sales (manager-only, soft-delete with audit).
+3. Customer management (create, edit, credit limits for wholesale).
 
 ## Verification
 
@@ -79,6 +79,18 @@ secrets or environment values.
   batch decrements must reference a new sale in the same transaction. Verified
   with `bun run lint`, `bun run typecheck`, `bun run build`, and the Firestore
   emulator.
+- 2026-06-04: Built full procurement workflow: Suppliers, Purchase Orders, GRN.
+  Suppliers: full CRUD (create/edit modal, active/inactive filter, audit logs).
+  GRN: multi-line form with useFieldArray; each line creates a batch atomically via
+  a single Firestore transaction that reads a year-scoped counter, checks for
+  duplicate batch numbers, creates all batches + stockTransactions, then writes
+  the GRN document. Counter stored at counters/grn. GRN number format: GRN-YYYY-NNN.
+  PO: create with line items (product+qty+cost), status transitions via icon buttons
+  (draft→sent→received, cancel at any open state). PO number: PO-YYYY-NNN via
+  counters/po. PurchasingNav shared tab bar between /purchasing/orders and
+  /purchasing/grn. Existing counters Firestore rule (isWholesale write) covers
+  managers. batchDocumentId and dateTimestamp exported from inventory.service for
+  reuse. Verified with lint, typecheck, build.
 - 2026-06-04: Added discounts, split payments, and returns to the retail POS.
   Discounts (% or fixed) persist in the Zustand cart store (survives park/resume).
   Discounts above 20% are blocked for non-managers (inventory:write gate).

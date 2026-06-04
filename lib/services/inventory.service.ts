@@ -100,12 +100,12 @@ export async function createProduct(input: ProductInput, actor: ProductAuditActo
   return productRef.id;
 }
 
-function dateTimestamp(value: string, endOfDay = false) {
+export function dateTimestamp(value: string, endOfDay = false) {
   const time = endOfDay ? "23:59:59.999" : "12:00:00.000";
   return Timestamp.fromDate(new Date(`${value}T${time}Z`));
 }
 
-function batchDocumentId(productId: string, batchNumber: string) {
+export function batchDocumentId(productId: string, batchNumber: string) {
   return encodeURIComponent(`${productId}:${batchNumber.trim().toUpperCase()}`);
 }
 
