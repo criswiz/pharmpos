@@ -18,6 +18,7 @@ import {
   Wifi,
   WifiOff,
   X,
+  XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ReceiptModal } from "@/components/pos/receipt-modal";
@@ -29,7 +30,9 @@ import {
   checkoutRetailSale,
   getSaleReceipt,
   subscribeRecentRetailSales,
+  voidSale,
 } from "@/lib/services/sales.service";
+import { getPosSettings } from "@/lib/services/settings.service";
 import { subscribeBatches, subscribeProducts } from "@/lib/services/inventory.service";
 import { allocateFefoStock } from "@/lib/utils/fefo";
 import { canAccess } from "@/lib/utils/rbac";
@@ -61,7 +64,7 @@ const PAYMENT_METHODS: Array<{ value: SinglePaymentMethod; label: string; icon: 
 
 const PAYMENT_LABEL: Record<string, string> = { cash: "Cash", momo: "MoMo", card: "Card", split: "Split" };
 
-const DISCOUNT_THRESHOLD_PCT = 20;
+const DEFAULT_discountThreshold = 20;
 
 function toDate(value: SaleTransaction["sale_date"]) {
   if (!value) return new Date();
@@ -99,6 +102,9 @@ export function RetailPos() {
   const [returnSaleId, setReturnSaleId] = useState<string | null>(null);
   const [fetchingReceipt, setFetchingReceipt] = useState<string | null>(null);
   const [checkingOut, setCheckingOut] = useState(false);
+  const [discountThreshold, setDiscountThreshold] = useState(DEFAULT_discountThreshold);
+  const [confirmVoidId, setConfirmVoidId] = useState<string | null>(null);
+  const [voidingId, setVoidingId] = useState<string | null>(null);
 
   // Payment state
   const [splitMode, setSplitMode] = useState(false);
@@ -125,6 +131,18 @@ export function RetailPos() {
 
   const isManager = canAccess(role, "inventory:write");
   const actor = user && appUser && role ? { uid: user.uid, name: appUser.name, role } : null;
+
+  useEffect(() => {
+    getPosSettings()
+      .then((s) => setDiscountThreshold(s.discount_threshold_pct))
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (!confirmVoidId) return;
+    const timer = setTimeout(() => setConfirmVoidId(null), 4000);
+    return () => clearTimeout(timer);
+  }, [confirmVoidId]);
 
   useEffect(() => {
     const updateOnlineState = () => setOnline(navigator.onLine);
@@ -216,8 +234,8 @@ export function RetailPos() {
     discount &&
     discount.value > 0 &&
     (discount.type === "pct"
-      ? discount.value > DISCOUNT_THRESHOLD_PCT
-      : discountAmount / subtotal > DISCOUNT_THRESHOLD_PCT / 100);
+      ? discount.value > discountThreshold
+      : discountAmount / subtotal > discountThreshold / 100);
 
   const splitsTotal = money(splits.reduce((sum, s) => sum + (Number(s.amount) || 0), 0));
   const splitsValid = splitsTotal >= total && splits.some((s) => Number(s.amount) > 0);
@@ -332,6 +350,21 @@ export function RetailPos() {
       toast({ title: "Could not load receipt", description: "Check your connection and try again.", variant: "error" });
     } finally {
       setFetchingReceipt(null);
+    }
+  }
+
+  async function handleVoidSale(saleId: string) {
+    if (!actor) return;
+    if (confirmVoidId !== saleId) { setConfirmVoidId(saleId); return; }
+    setVoidingId(saleId);
+    setConfirmVoidId(null);
+    try {
+      await voidSale(saleId, actor);
+      toast({ title: "Sale voided", description: `Reference: ${saleId.slice(-10).toUpperCase()}`, variant: "success" });
+    } catch (err) {
+      toast({ title: "Void failed", description: err instanceof Error ? err.message : "Could not void sale.", variant: "error" });
+    } finally {
+      setVoidingId(null);
     }
   }
 
@@ -488,8 +521,15 @@ export function RetailPos() {
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <p className="text-sm font-semibold text-emerald-950">{currency.format(sale.total)}</p>
-                      {isManager ? (
+                      <div className="text-right">
+                        <p className={`text-sm font-semibold ${sale.status === "voided" ? "text-zinc-400 line-through" : "text-emerald-950"}`}>
+                          {currency.format(sale.total)}
+                        </p>
+                        {sale.status === "voided" ? (
+                          <p className="text-[10px] font-medium text-red-500">Voided</p>
+                        ) : null}
+                      </div>
+                      {isManager && sale.status !== "voided" ? (
                         <button
                           type="button"
                           title="Process return"
@@ -497,6 +537,21 @@ export function RetailPos() {
                           className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 text-zinc-500 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700"
                         >
                           <RotateCcw className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
+                      {isManager && sale.status !== "voided" ? (
+                        <button
+                          type="button"
+                          title={confirmVoidId === sale.id ? "Confirm void" : "Void sale"}
+                          disabled={voidingId === sale.id}
+                          onClick={() => handleVoidSale(sale.id)}
+                          className={`flex h-8 w-8 items-center justify-center rounded-md border text-zinc-500 disabled:opacity-50 ${
+                            confirmVoidId === sale.id
+                              ? "border-red-300 bg-red-50 text-red-600"
+                              : "border-zinc-200 hover:bg-red-50 hover:border-red-300 hover:text-red-600"
+                          }`}
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
                         </button>
                       ) : null}
                       <button
@@ -615,7 +670,7 @@ export function RetailPos() {
                 </div>
                 {discountExceedsThreshold && !isManager ? (
                   <p className="mt-1.5 text-xs text-amber-700">
-                    Discounts above {DISCOUNT_THRESHOLD_PCT}% require manager authorisation.
+                    Discounts above {discountThreshold}% require manager authorisation.
                   </p>
                 ) : null}
               </div>

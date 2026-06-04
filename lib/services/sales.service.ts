@@ -436,3 +436,35 @@ export async function returnSaleItems(
 
   return returnRef.id;
 }
+
+interface VoidActor {
+  uid: string;
+  name: string;
+  role: string;
+}
+
+export async function voidSale(saleId: string, actor: VoidActor): Promise<void> {
+  const db = getFirebaseDb();
+  const saleRef = doc(db, "saleTransactions", saleId);
+
+  await runTransaction(db, async (transaction) => {
+    const saleSnap = await transaction.get(saleRef);
+    if (!saleSnap.exists()) throw new Error("Sale not found.");
+
+    const sale = saleSnap.data() as Omit<SaleTransaction, "id">;
+    if (sale.status === "voided") throw new Error("This sale is already voided.");
+
+    transaction.update(saleRef, { status: "voided" });
+
+    transaction.set(doc(collection(db, "auditLogs")), {
+      timestamp: serverTimestamp(),
+      user_id: actor.uid,
+      user_name_snapshot: actor.name,
+      user_role_snapshot: actor.role,
+      action: "SALE_VOIDED",
+      entity_type: "sale",
+      entity_id: saleId,
+      details: { total: sale.total, payment_method: sale.payment_method },
+    });
+  });
+}

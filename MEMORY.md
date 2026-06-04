@@ -54,10 +54,10 @@ secrets or environment values.
 
 ## Next Up
 
-1. Replace scaffold dashboard metrics with Firestore-backed aggregates.
-2. Void workflow for completed sales (manager-only, soft-delete with audit).
-3. Customer management (create, edit, credit limits for wholesale).
-4. Settings page (pharmacy info editor, discount threshold config).
+1. Customer management (create, edit, credit limits for wholesale).
+2. Wholesale orders module (channel-specific POS, invoice generation).
+3. Reports (sales by period, stock valuation, expiry, audit log export).
+4. Trace / audit log viewer.
 
 ## Verification
 
@@ -80,6 +80,22 @@ secrets or environment values.
   batch decrements must reference a new sale in the same transaction. Verified
   with `bun run lint`, `bun run typecheck`, `bun run build`, and the Firestore
   emulator.
+- 2026-06-04: Dashboard, Settings, and Void workflow.
+  Dashboard: real-time stats (today's retail sales, 7-day revenue, low-stock count,
+  expiry-risk count), Recharts BarChart for 7-day daily revenue, recent-sales list,
+  low-stock alert panel, expiry-risk panel. Uses subscribeTodayRetailStats (channel +
+  sale_date composite index already present) and subscribe7DayRevenue (sale_date
+  single-field index, auto-created). Low-stock and expiry computed client-side from
+  products + batches subscriptions.
+  Settings: two-form page — pharmacy info (name/tagline/address/phone/email/FDA number/
+  logo URL) written to settings/pharmacyInfo, POS settings (discount_threshold_pct)
+  written to settings/pos. Both read and pre-fill on mount.
+  Void: voidSale sets saleTransaction status to "voided" in an atomic transaction with
+  audit log. POS recent-sales list shows a void button (manager-only, two-click
+  confirm pattern with 4s auto-dismiss, 4s timeout). Voided sales display strikethrough
+  amount + "Voided" label. Discount threshold loaded from settings/pos on POS mount
+  instead of hardcoding 20%.
+  Verified with lint, typecheck, build.
 - 2026-06-04: Implemented route guards and user management.
   Route guard: app/(app)/layout.tsx now checks canAccess(role, requiredPermission)
   for each path after auth loads; holds a skeleton and redirects to the first

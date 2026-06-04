@@ -125,6 +125,10 @@ export interface PharmacyInfo {
   logo_url: string;
 }
 
+export interface PosSettings {
+  discount_threshold_pct: number;
+}
+
 export interface ReceiptLine {
   product_name: string;
   batch_number: string;
