@@ -10,6 +10,10 @@ service cloud.firestore {
       return /databases/$(database)/documents/roles/$(request.auth.uid);
     }
 
+    function salePath(saleId) {
+      return /databases/$(database)/documents/saleTransactions/$(saleId);
+    }
+
     function role() {
       return signedIn() && exists(rolePath()) ? get(rolePath()).data.role : null;
     }
@@ -34,9 +38,13 @@ service cloud.firestore {
       return hasAnyRole(['OWNER', 'STORE_MANAGER', 'WHOLESALE_STAFF', 'SYS_ADMIN']);
     }
 
+    function canSell() {
+      return hasAnyRole(['OWNER', 'STORE_MANAGER', 'RETAIL_STAFF', 'WHOLESALE_STAFF', 'SYS_ADMIN']);
+    }
+
     match /auditLogs/{logId} {
       allow read: if hasAnyRole(['OWNER', 'STORE_MANAGER', 'SYS_ADMIN']);
-      allow create: if signedIn();
+      allow create: if signedIn() && request.resource.data.user_id == request.auth.uid;
       allow update, delete: if false;
     }
 
@@ -69,7 +77,22 @@ service cloud.firestore {
 
     match /batches/{batchId} {
       allow read: if signedIn();
-      allow write: if isManager();
+      allow create: if isManager();
+      allow update: if isManager()
+        || (canSell()
+          && resource.data.status == 'active'
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['quantity_remaining', 'status', 'last_sale_id'])
+          && request.resource.data.quantity_remaining >= 0
+          && request.resource.data.quantity_remaining < resource.data.quantity_remaining
+          && !exists(salePath(request.resource.data.last_sale_id))
+          && existsAfter(salePath(request.resource.data.last_sale_id))
+          && getAfter(salePath(request.resource.data.last_sale_id)).data.created_by
+            == request.auth.uid
+          && ((request.resource.data.quantity_remaining == 0
+              && request.resource.data.status == 'depleted')
+            || (request.resource.data.quantity_remaining > 0
+              && request.resource.data.status == 'active')));
       allow delete: if false;
     }
 
@@ -81,20 +104,32 @@ service cloud.firestore {
 
     match /stockTransactions/{txId} {
       allow read: if signedIn();
-      allow create: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.created_by == request.auth.uid
+        && request.resource.data.quantity_change != 0;
       allow update, delete: if false;
     }
 
     match /saleTransactions/{saleId} {
       allow read: if signedIn();
-      allow create: if hasAnyRole(['OWNER', 'STORE_MANAGER', 'RETAIL_STAFF', 'WHOLESALE_STAFF', 'SYS_ADMIN']);
+      allow create: if canSell()
+        && request.resource.data.created_by == request.auth.uid
+        && request.resource.data.channel in ['retail', 'wholesale']
+        && request.resource.data.status == 'completed'
+        && request.resource.data.total > 0
+        && request.resource.data.item_count > 0;
       allow update: if isManager();
       allow delete: if false;
     }
 
     match /saleLineItems/{itemId} {
       allow read: if signedIn();
-      allow create: if hasAnyRole(['OWNER', 'STORE_MANAGER', 'RETAIL_STAFF', 'WHOLESALE_STAFF', 'SYS_ADMIN']);
+      allow create: if canSell()
+        && request.resource.data.created_by == request.auth.uid
+        && !exists(salePath(request.resource.data.sale_id))
+        && existsAfter(salePath(request.resource.data.sale_id))
+        && getAfter(salePath(request.resource.data.sale_id)).data.created_by
+          == request.auth.uid;
       allow update, delete: if false;
     }
 

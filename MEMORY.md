@@ -24,9 +24,15 @@ secrets or environment values.
 - Batch receipts atomically create the batch, opening stock transaction, and audit
   log. The stock view shows sellable units/value, expiry risk, prices, source
   references, and filters.
-- Dashboard, POS, customers, suppliers, reports, trace, settings, and users are
+- Retail POS supports barcode/name search, FEFO-aware availability and pricing, a
+  persistent Zustand cart, locally parked sales, cash/MoMo/card payments, and
+  atomic checkout.
+- POS checkout re-reads candidate batches in a Firestore transaction, reallocates
+  FEFO stock, deducts batches, and creates sale, line-item, stock-movement, and
+  audit records together.
+- Dashboard, customers, suppliers, reports, trace, settings, and users are
   currently scaffold/module pages rather than complete workflows.
-- Git baseline: `main` at `1b633cf` (`initial app with firebase setup and login`).
+- Git baseline: `main` at `062af8b` (`Implement batch stock management and validation features`).
 
 ## Important Decisions
 
@@ -35,6 +41,10 @@ secrets or environment values.
   changing Next.js APIs or conventions.
 - Keep Firestore writes auditable and use atomic batches/transactions where a
   business operation updates multiple records.
+- Checkout requires an online Firestore transaction. Carts and parked sales may be
+  stored locally, but stock deductions must never be queued offline.
+- Retail/shared stock is used by retail POS. FEFO allocation may span multiple
+  batches, and each batch allocation becomes its own sale line item.
 - Treat each product/batch-number combination as unique. Expiry timestamps use the
   end of the selected calendar date so stock remains valid for the full date.
 - The first OWNER or SYS_ADMIN must be bootstrapped directly in Firebase Auth with
@@ -44,8 +54,8 @@ secrets or environment values.
 
 ## Next Up
 
-1. Add FEFO stock-allocation and transactional stock-deduction services for POS.
-2. Build the POS barcode search, cart, parked-sale persistence, and checkout flow.
+1. Add printable retail receipts and recent-sale lookup.
+2. Add discounts/approval thresholds, split payments, returns, and void workflows.
 3. Add batch stock adjustments, recall controls, and movement history.
 4. Build suppliers and full purchase order/GRN workflows around batch receiving.
 5. Replace scaffold dashboard metrics with Firestore-backed aggregates.
@@ -65,3 +75,9 @@ secrets or environment values.
   receiving with validation, opening stock movements, duplicate protection, and
   audit logs. Existing Firestore rules/indexes already supported the workflow.
   Verified with `bun run lint`, `bun run typecheck`, and `bun run build`.
+- 2026-06-04: Implemented retail POS with FEFO allocation, persistent cart and
+  parked sales, online atomic checkout, payment recording, stock deductions, sale
+  line items, stock movements, and audit logs. Tightened Firestore rules so POS
+  batch decrements must reference a new sale in the same transaction. Verified
+  with `bun run lint`, `bun run typecheck`, `bun run build`, and the Firestore
+  emulator.

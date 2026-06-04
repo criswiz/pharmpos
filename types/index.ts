@@ -81,8 +81,26 @@ export interface Batch {
   shop_context: "retail" | "wholesale" | "shared";
   status: "active" | "expired" | "recalled" | "depleted";
   grn_id?: string;
+  last_sale_id?: string;
   created_at: FirestoreDate;
   created_by: string;
+}
+
+export type PaymentMethod = "cash" | "momo" | "card";
+
+export interface PosCartItem {
+  product_id: string;
+  product_name_snapshot: string;
+  product_generic_snapshot: string;
+  barcode_snapshot: string;
+  quantity: number;
+}
+
+export interface ParkedSale {
+  id: string;
+  label: string;
+  parked_at: string;
+  items: PosCartItem[];
 }
 
 export interface PharmacyInfo {
