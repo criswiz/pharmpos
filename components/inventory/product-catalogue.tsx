@@ -9,6 +9,7 @@ import { productSchema, type ProductInput } from "@/lib/validation/product";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
+import { InventoryNav } from "@/components/inventory/inventory-nav";
 import type { Product } from "@/types";
 
 const defaults: ProductInput = {
@@ -114,6 +115,8 @@ export function ProductCatalogue() {
           Add product
         </button>
       </header>
+
+      <InventoryNav />
 
       <section className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
         <label className="relative">

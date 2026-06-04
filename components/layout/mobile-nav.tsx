@@ -31,7 +31,10 @@ export function MobileNav() {
       <div className="grid grid-cols-5 gap-1">
         {visibleItems.map((item) => {
           const Icon = item.icon;
-          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const active =
+            pathname === item.href ||
+            pathname.startsWith(`${item.href}/`) ||
+            (item.href === "/inventory/products" && pathname.startsWith("/inventory/"));
 
           return (
             <Link
