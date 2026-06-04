@@ -57,6 +57,7 @@ secrets or environment values.
 1. Replace scaffold dashboard metrics with Firestore-backed aggregates.
 2. Void workflow for completed sales (manager-only, soft-delete with audit).
 3. Customer management (create, edit, credit limits for wholesale).
+4. Settings page (pharmacy info editor, discount threshold config).
 
 ## Verification
 
@@ -79,6 +80,19 @@ secrets or environment values.
   batch decrements must reference a new sale in the same transaction. Verified
   with `bun run lint`, `bun run typecheck`, `bun run build`, and the Firestore
   emulator.
+- 2026-06-04: Implemented route guards and user management.
+  Route guard: app/(app)/layout.tsx now checks canAccess(role, requiredPermission)
+  for each path after auth loads; holds a skeleton and redirects to the first
+  accessible route (pos → wholesale/orders → dashboard) if unauthorized.
+  Admin API extended with PATCH handler (update_role, toggle_active, unlock,
+  reset_password); all operations re-verify caller is OWNER/SYS_ADMIN and
+  block self-modification. shopAccessForRole helper sets shopAccess on
+  role documents consistently. Users service: subscribeUsers joins users +
+  roles collections in real-time (waits for both snapshots before merging).
+  User management UI: table with role badge, active/locked status, last login;
+  actions per row (change role modal with radio list, toggle active, unlock,
+  reset password → copy-link modal); create user modal returns password reset
+  link for admin to share. Gated to OWNER/SYS_ADMIN. Verified with lint, build.
 - 2026-06-04: Built full procurement workflow: Suppliers, Purchase Orders, GRN.
   Suppliers: full CRUD (create/edit modal, active/inactive filter, audit logs).
   GRN: multi-line form with useFieldArray; each line creates a batch atomically via
