@@ -55,9 +55,8 @@ secrets or environment values.
 ## Next Up
 
 1. Add discounts/approval thresholds, split payments, returns, and void workflows.
-2. Add batch stock adjustments, recall controls, and movement history.
-3. Build suppliers and full purchase order/GRN workflows around batch receiving.
-4. Replace scaffold dashboard metrics with Firestore-backed aggregates.
+2. Build suppliers and full purchase order/GRN workflows around batch receiving.
+3. Replace scaffold dashboard metrics with Firestore-backed aggregates.
 
 ## Verification
 
@@ -80,6 +79,13 @@ secrets or environment values.
   batch decrements must reference a new sale in the same transaction. Verified
   with `bun run lint`, `bun run typecheck`, `bun run build`, and the Firestore
   emulator.
+- 2026-06-04: Added batch stock adjustments, recall controls, and movement history.
+  `StockAdjustModal` handles both signed corrections (correction/damage/expiry_write_off/other)
+  and recall quarantine in one component. `BatchMovementsPanel` is a real-time slide-in
+  panel showing all stockTransactions for a batch with type icons and running balance.
+  Three icon action buttons (adjust/recall/history) added to each batch row in the table;
+  adjust and recall are gated to inventory:write. Added composite Firestore index
+  batch_id + created_at DESC. Verified with lint, typecheck, build.
 - 2026-06-04: Added printable retail receipts and recent-sale lookup. `ReceiptData`
   is returned directly from the checkout transaction (no extra read). `ReceiptModal`
   opens a styled 80mm thermal-print window via `window.open`. Recent sales list

@@ -133,6 +133,26 @@ export interface ReceiptData {
   item_count: number;
 }
 
+export type AdjustmentType = "correction" | "damage" | "expiry_write_off" | "other";
+
+export interface StockTransaction {
+  id: string;
+  batch_id: string;
+  product_id: string;
+  product_name_snapshot: string;
+  batch_number_snapshot: string;
+  type: "receipt" | "sale" | "adjustment" | "recall";
+  adjustment_type?: AdjustmentType;
+  quantity_change: number;
+  quantity_after: number;
+  reason: string;
+  reference_type?: string;
+  reference_id?: string;
+  shop_context: "retail" | "wholesale" | "shared";
+  created_at: FirestoreDate;
+  created_by: string;
+}
+
 export interface SaleTransaction {
   id: string;
   sale_date: FirestoreDate;

@@ -7,12 +7,13 @@ import {
   query,
   runTransaction,
   serverTimestamp,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { Batch, Product } from "@/types";
+import type { Batch, Product, StockTransaction } from "@/types";
 import type { ProductInput } from "@/lib/validation/product";
-import type { BatchReceiptInput } from "@/lib/validation/batch";
+import type { BatchReceiptInput, StockAdjustmentInput } from "@/lib/validation/batch";
 
 interface ProductAuditActor {
   uid: string;
@@ -184,4 +185,157 @@ export async function receiveBatch(
   });
 
   return batchRef.id;
+}
+
+interface AdjustActor {
+  uid: string;
+  name: string;
+  role: string;
+}
+
+export async function adjustBatchStock(
+  batchId: string,
+  input: StockAdjustmentInput,
+  actor: AdjustActor,
+): Promise<{ quantityAfter: number }> {
+  const delta = input.direction === "add" ? input.quantity : -input.quantity;
+  const db = getFirebaseDb();
+  const batchRef = doc(db, "batches", batchId);
+
+  return runTransaction(db, async (transaction) => {
+    const batchSnap = await transaction.get(batchRef);
+    if (!batchSnap.exists()) throw new Error("Batch not found.");
+
+    const batch = { id: batchSnap.id, ...batchSnap.data() } as Batch;
+
+    if (batch.status === "recalled") {
+      throw new Error("Cannot adjust a recalled batch.");
+    }
+
+    const quantityAfter = batch.quantity_remaining + delta;
+    if (quantityAfter < 0) {
+      throw new Error(
+        `Adjustment of ${delta} would reduce stock below zero. Current remaining: ${batch.quantity_remaining}.`,
+      );
+    }
+
+    transaction.update(batchRef, {
+      quantity_remaining: quantityAfter,
+      status: quantityAfter === 0 ? "depleted" : "active",
+    });
+
+    transaction.set(doc(collection(db, "stockTransactions")), {
+      batch_id: batchId,
+      product_id: batch.product_id,
+      product_name_snapshot: batch.product_name_snapshot,
+      batch_number_snapshot: batch.batch_number,
+      type: "adjustment",
+      adjustment_type: input.adjustment_type,
+      quantity_change: delta,
+      quantity_after: quantityAfter,
+      reason: input.reason,
+      reference_type: "manual_adjustment",
+      reference_id: null,
+      shop_context: batch.shop_context,
+      created_at: serverTimestamp(),
+      created_by: actor.uid,
+    });
+
+    transaction.set(doc(collection(db, "auditLogs")), {
+      timestamp: serverTimestamp(),
+      user_id: actor.uid,
+      user_name_snapshot: actor.name,
+      user_role_snapshot: actor.role,
+      action: "BATCH_STOCK_ADJUSTED",
+      entity_type: "batch",
+      entity_id: batchId,
+      details: {
+        product_name: batch.product_name_snapshot,
+        batch_number: batch.batch_number,
+        delta,
+        quantity_before: batch.quantity_remaining,
+        quantity_after: quantityAfter,
+        adjustment_type: input.adjustment_type,
+        reason: input.reason,
+      },
+    });
+
+    return { quantityAfter };
+  });
+}
+
+export async function recallBatch(
+  batchId: string,
+  reason: string,
+  actor: AdjustActor,
+): Promise<void> {
+  const db = getFirebaseDb();
+  const batchRef = doc(db, "batches", batchId);
+
+  await runTransaction(db, async (transaction) => {
+    const batchSnap = await transaction.get(batchRef);
+    if (!batchSnap.exists()) throw new Error("Batch not found.");
+
+    const batch = { id: batchSnap.id, ...batchSnap.data() } as Batch;
+
+    if (batch.status === "recalled") throw new Error("This batch is already recalled.");
+    if (batch.status === "depleted") throw new Error("Cannot recall a depleted batch.");
+
+    transaction.update(batchRef, { status: "recalled" });
+
+    if (batch.quantity_remaining > 0) {
+      transaction.set(doc(collection(db, "stockTransactions")), {
+        batch_id: batchId,
+        product_id: batch.product_id,
+        product_name_snapshot: batch.product_name_snapshot,
+        batch_number_snapshot: batch.batch_number,
+        type: "recall",
+        quantity_change: -batch.quantity_remaining,
+        quantity_after: 0,
+        reason,
+        reference_type: "recall",
+        reference_id: null,
+        shop_context: batch.shop_context,
+        created_at: serverTimestamp(),
+        created_by: actor.uid,
+      });
+    }
+
+    transaction.set(doc(collection(db, "auditLogs")), {
+      timestamp: serverTimestamp(),
+      user_id: actor.uid,
+      user_name_snapshot: actor.name,
+      user_role_snapshot: actor.role,
+      action: "BATCH_RECALLED",
+      entity_type: "batch",
+      entity_id: batchId,
+      details: {
+        product_name: batch.product_name_snapshot,
+        batch_number: batch.batch_number,
+        quantity_written_off: batch.quantity_remaining,
+        reason,
+      },
+    });
+  });
+}
+
+export function subscribeBatchMovements(
+  batchId: string,
+  onData: (transactions: StockTransaction[]) => void,
+  onError: () => void,
+): () => void {
+  const db = getFirebaseDb();
+  return onSnapshot(
+    query(
+      collection(db, "stockTransactions"),
+      where("batch_id", "==", batchId),
+      orderBy("created_at", "desc"),
+    ),
+    (snapshot) => {
+      onData(
+        snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as StockTransaction),
+      );
+    },
+    () => onError(),
+  );
 }

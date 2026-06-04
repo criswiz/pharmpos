@@ -1,9 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Boxes, CalendarClock, PackagePlus, Search, TriangleAlert, X } from "lucide-react";
+import { AlertOctagon, Boxes, CalendarClock, History, PackagePlus, Search, SlidersHorizontal, TriangleAlert, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { BatchMovementsPanel } from "@/components/inventory/batch-movements-panel";
+import { StockAdjustModal } from "@/components/inventory/stock-adjust-modal";
 import { InventoryNav } from "@/components/inventory/inventory-nav";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
@@ -13,11 +15,18 @@ import {
   subscribeBatches,
   subscribeProducts,
 } from "@/lib/services/inventory.service";
+import { canAccess } from "@/lib/utils/rbac";
 import {
   batchReceiptSchema,
   type BatchReceiptInput,
 } from "@/lib/validation/batch";
 import type { Batch, FirestoreDate, Product } from "@/types";
+
+type ActiveModal =
+  | { type: "adjust"; batch: Batch }
+  | { type: "recall"; batch: Batch }
+  | { type: "history"; batch: Batch }
+  | null;
 
 type StockState = "active" | "expiring" | "expired" | "depleted" | "recalled";
 type StockFilter = "all" | StockState;
@@ -100,6 +109,7 @@ export function BatchStock() {
   const [status, setStatus] = useState<StockFilter>("all");
   const [shopContext, setShopContext] = useState("all");
   const [formOpen, setFormOpen] = useState(false);
+  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [pendingLoads, setPendingLoads] = useState(2);
   const [loadError, setLoadError] = useState("");
 
@@ -191,6 +201,7 @@ export function BatchStock() {
   const activeProducts = products.filter((product) => product.is_active);
   const actor =
     user && appUser && role ? { uid: user.uid, name: appUser.name, role } : null;
+  const canManage = canAccess(role, "inventory:write");
 
   return (
     <div className="space-y-5">
@@ -293,7 +304,7 @@ export function BatchStock() {
 
       <section className="overflow-hidden rounded-md border border-emerald-900/10 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
+          <table className="w-full min-w-300 border-collapse text-left text-sm">
             <thead className="bg-emerald-50 text-xs uppercase text-emerald-950">
               <tr>
                 <th className="px-4 py-3 font-semibold">Product / Batch</th>
@@ -305,6 +316,7 @@ export function BatchStock() {
                 <th className="px-4 py-3 font-semibold">Wholesale</th>
                 <th className="px-4 py-3 font-semibold">Pool</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="px-4 py-3 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -350,6 +362,38 @@ export function BatchStock() {
                             {state === "expiring" ? "Expiring soon" : state}
                           </span>
                         </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            {canManage && (state === "active" || state === "expiring") ? (
+                              <button
+                                type="button"
+                                title="Adjust stock"
+                                onClick={() => setActiveModal({ type: "adjust", batch })}
+                                className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 text-zinc-500 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700"
+                              >
+                                <SlidersHorizontal className="h-3.5 w-3.5" />
+                              </button>
+                            ) : null}
+                            {canManage && batch.status !== "recalled" && batch.status !== "depleted" ? (
+                              <button
+                                type="button"
+                                title="Recall batch"
+                                onClick={() => setActiveModal({ type: "recall", batch })}
+                                className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 text-zinc-500 hover:bg-red-50 hover:border-red-300 hover:text-red-600"
+                              >
+                                <AlertOctagon className="h-3.5 w-3.5" />
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              title="Movement history"
+                              onClick={() => setActiveModal({ type: "history", batch })}
+                              className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 text-zinc-500 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
+                            >
+                              <History className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })
@@ -374,6 +418,31 @@ export function BatchStock() {
           products={activeProducts}
           actor={actor}
           onClose={() => setFormOpen(false)}
+        />
+      ) : null}
+
+      {activeModal?.type === "adjust" && actor ? (
+        <StockAdjustModal
+          mode="adjust"
+          batch={activeModal.batch}
+          actor={actor}
+          onClose={() => setActiveModal(null)}
+        />
+      ) : null}
+
+      {activeModal?.type === "recall" && actor ? (
+        <StockAdjustModal
+          mode="recall"
+          batch={activeModal.batch}
+          actor={actor}
+          onClose={() => setActiveModal(null)}
+        />
+      ) : null}
+
+      {activeModal?.type === "history" ? (
+        <BatchMovementsPanel
+          batch={activeModal.batch}
+          onClose={() => setActiveModal(null)}
         />
       ) : null}
     </div>
@@ -591,7 +660,7 @@ function BatchRowsSkeleton() {
             <Skeleton className="h-4 w-36" />
             <Skeleton className="mt-2 h-3 w-24" />
           </td>
-          {Array.from({ length: 8 }).map((__, cellIndex) => (
+          {Array.from({ length: 9 }).map((__, cellIndex) => (
             <td key={cellIndex} className="px-4 py-3">
               <Skeleton className="h-4 w-20" />
             </td>

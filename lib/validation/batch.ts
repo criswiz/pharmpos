@@ -68,3 +68,18 @@ export const batchReceiptSchema = z
   });
 
 export type BatchReceiptInput = z.infer<typeof batchReceiptSchema>;
+
+export const stockAdjustmentSchema = z.object({
+  direction: z.enum(["add", "remove"]),
+  quantity: z.number().int().positive("Quantity must be a positive whole number"),
+  adjustment_type: z.enum(["correction", "damage", "expiry_write_off", "other"]),
+  reason: z.string().trim().min(5, "Reason must be at least 5 characters"),
+});
+
+export type StockAdjustmentInput = z.infer<typeof stockAdjustmentSchema>;
+
+export const recallSchema = z.object({
+  reason: z.string().trim().min(5, "Reason must be at least 5 characters"),
+});
+
+export type RecallInput = z.infer<typeof recallSchema>;
