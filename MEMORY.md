@@ -17,6 +17,9 @@ secrets or environment values.
 - Authentication is implemented with Firebase email/password, PharmPOS user and
   role document hydration, RBAC permissions, protected app layout, sign-out, and
   password reset.
+- User Management supports per-user module permission overrides stored on
+  `roles/{uid}.permissions`; route guards, navigation, admin API checks, and
+  Firestore rules honor the stored permission list.
 - The application shell, sidebar, mobile navigation, loading skeletons, and toast
   notifications are implemented.
 - Inventory supports a realtime product catalogue plus batch receiving and stock
@@ -67,6 +70,16 @@ secrets or environment values.
 
 ## Session Notes
 
+- 2026-06-05: Added per-user module access editing to User Management.
+  `roles/{uid}.permissions` is now surfaced in the users table and editable in
+  the role/access modal, with a role-default reset. Auth hydration normalizes
+  stored permissions, and app layout/sidebar/mobile nav use the hydrated list
+  instead of hardcoded role defaults. Admin API accepts audited permission updates
+  and allows delegated users with `users:write` while still blocking self-edits.
+  Firestore rules now map module permissions to the relevant write/read checks
+  and were loaded successfully by the Firestore emulator. Verified with
+  `bun run lint`, `bun run typecheck`, `bun run build`, and
+  `firebase emulators:exec --only firestore "true"`.
 - 2026-06-04: Created this memory file and added its maintenance instructions to
   `AGENTS.md`. No application behavior changed.
 - 2026-06-04: Implemented realtime batch stock views and atomic manual batch

@@ -17,7 +17,7 @@ import {
   Users,
   UserRoundCog,
 } from "lucide-react";
-import { canAccess, formatRole } from "@/lib/utils/rbac";
+import { formatRole, hasPermission } from "@/lib/utils/rbac";
 import { cn } from "@/lib/utils/cn";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type { Permission } from "@/types";
@@ -44,9 +44,9 @@ const navItems: Array<{
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { appUser, role, signOut } = useAuth();
+  const { appUser, role, permissions, signOut } = useAuth();
 
-  const visibleItems = navItems.filter((item) => canAccess(role, item.permission));
+  const visibleItems = navItems.filter((item) => hasPermission(permissions, item.permission));
 
   async function handleSignOut() {
     await signOut();

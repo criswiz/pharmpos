@@ -35,7 +35,7 @@ import {
 import { getPosSettings } from "@/lib/services/settings.service";
 import { subscribeBatches, subscribeProducts } from "@/lib/services/inventory.service";
 import { allocateFefoStock } from "@/lib/utils/fefo";
-import { canAccess } from "@/lib/utils/rbac";
+import { hasPermission } from "@/lib/utils/rbac";
 import { usePosCart } from "@/stores/pos-cart";
 import type {
   Batch,
@@ -86,7 +86,7 @@ function computeDiscountAmount(subtotal: number, discount: SaleDiscount | null):
 }
 
 export function RetailPos() {
-  const { user, appUser, role } = useAuth();
+  const { user, appUser, role, permissions } = useAuth();
   const { toast } = useToast();
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -129,7 +129,7 @@ export function RetailPos() {
     deleteParkedSale,
   } = usePosCart();
 
-  const isManager = canAccess(role, "inventory:write");
+  const isManager = hasPermission(permissions, "inventory:write");
   const actor = user && appUser && role ? { uid: user.uid, name: appUser.name, role } : null;
 
   useEffect(() => {

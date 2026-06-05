@@ -6,7 +6,7 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { AppShellSkeleton } from "@/components/layout/app-shell-skeleton";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { canAccess } from "@/lib/utils/rbac";
+import { hasPermission } from "@/lib/utils/rbac";
 import type { Permission } from "@/types";
 
 // Map path prefixes to the permission required to view them.
@@ -31,33 +31,33 @@ function getRequiredPermission(pathname: string): Permission | null {
   return null;
 }
 
-function getFallbackPath(role: string | null): string {
-  if (canAccess(role as never, "pos:write")) return "/pos";
-  if (canAccess(role as never, "wholesale:write")) return "/wholesale/orders";
+function getFallbackPath(permissions: Permission[]): string {
+  if (hasPermission(permissions, "pos:write")) return "/pos";
+  if (hasPermission(permissions, "wholesale:write")) return "/wholesale/orders";
   return "/dashboard";
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, role, loading } = useAuth();
+  const { user, permissions, loading } = useAuth();
 
   useEffect(() => {
     if (loading) return;
     if (!user) { router.replace("/login"); return; }
 
     const required = getRequiredPermission(pathname);
-    if (required && !canAccess(role, required)) {
-      router.replace(getFallbackPath(role));
+    if (required && !hasPermission(permissions, required)) {
+      router.replace(getFallbackPath(permissions));
     }
-  }, [loading, user, role, pathname, router]);
+  }, [loading, user, permissions, pathname, router]);
 
   if (loading) return <AppShellSkeleton />;
   if (!user) return null;
 
   // Hold children until the redirect resolves to avoid a flash of forbidden content.
   const required = getRequiredPermission(pathname);
-  if (required && !canAccess(role, required)) return <AppShellSkeleton />;
+  if (required && !hasPermission(permissions, required)) return <AppShellSkeleton />;
 
   return (
     <div className="min-h-screen bg-[#F8FAF8] lg:flex">

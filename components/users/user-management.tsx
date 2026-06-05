@@ -8,6 +8,8 @@ import {
   Lock,
   LockOpen,
   Plus,
+  RotateCcw,
+  ShieldCheck,
   UserRoundCog,
   X,
 } from "lucide-react";
@@ -17,7 +19,7 @@ import { z } from "zod";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { formatRole } from "@/lib/utils/rbac";
+import { allPermissions, formatRole, permissionLabels, rolePermissions } from "@/lib/utils/rbac";
 import {
   adminCreateUser,
   adminResetPassword,
@@ -28,6 +30,7 @@ import {
   type UserWithRole,
 } from "@/lib/services/users.service";
 import type { UserRole } from "@/types";
+import type { Permission } from "@/types";
 
 const ROLES: UserRole[] = [
   "OWNER",
@@ -60,6 +63,19 @@ function formatDate(value: unknown): string {
   } catch {
     return "—";
   }
+}
+
+function samePermissions(left: Permission[], right: Permission[]) {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((permission) => rightSet.has(permission));
+}
+
+function accessSummary(permissions: Permission[]) {
+  const visible = permissions.filter((permission) => permission !== "audit:read");
+  if (visible.length === 0) return "No views";
+  if (visible.length <= 2) return visible.map((permission) => permissionLabels[permission]).join(", ");
+  return `${visible.length} views`;
 }
 
 const createUserSchema = z.object({
@@ -176,6 +192,7 @@ export function UserManagement() {
               <tr>
                 <th className="px-4 py-3 font-semibold">Name</th>
                 <th className="px-4 py-3 font-semibold">Role</th>
+                <th className="px-4 py-3 font-semibold">Access</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
                 <th className="px-4 py-3 font-semibold">Last login</th>
                 {canAdmin ? <th className="px-4 py-3 font-semibold">Actions</th> : null}
@@ -185,7 +202,7 @@ export function UserManagement() {
               {loading
                 ? Array.from({ length: 4 }).map((_, i) => (
                     <tr key={i}>
-                      {Array.from({ length: canAdmin ? 5 : 4 }).map((__, j) => (
+                      {Array.from({ length: canAdmin ? 6 : 5 }).map((__, j) => (
                         <td key={j} className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
                       ))}
                     </tr>
@@ -209,6 +226,12 @@ export function UserManagement() {
                         )}
                       </td>
                       <td className="px-4 py-3">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600">
+                          <ShieldCheck className="h-3 w-3" />
+                          {accessSummary(u.permissions)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className={`rounded-full px-2 py-1 text-xs font-medium ${u.active ? "bg-emerald-50 text-emerald-700" : "bg-zinc-100 text-zinc-500"}`}>
                             {u.active ? "Active" : "Inactive"}
@@ -230,7 +253,7 @@ export function UserManagement() {
                             <div className="flex items-center gap-1">
                               <button
                                 type="button"
-                                title="Change role"
+                                title="Change role and access"
                                 onClick={() => setEditRoleFor(u)}
                                 className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 text-zinc-500 hover:bg-sky-50 hover:text-sky-700"
                               >
@@ -413,15 +436,41 @@ function EditRoleModal({
   toast: ReturnType<typeof useToast>["toast"];
 }) {
   const [role, setRole] = useState<UserRole>(user.role ?? "RETAIL_STAFF");
+  const [permissions, setPermissions] = useState<Permission[]>(
+    user.permissions.length > 0 ? user.permissions : rolePermissions[user.role ?? "RETAIL_STAFF"],
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  function handleRoleChange(nextRole: UserRole) {
+    setRole(nextRole);
+    setPermissions(rolePermissions[nextRole]);
+  }
+
+  function togglePermission(permission: Permission) {
+    if (permission === "dashboard:read") return;
+
+    setPermissions((current) => {
+      const next = current.includes(permission)
+        ? current.filter((item) => item !== permission)
+        : [...current, permission];
+      return next.includes("dashboard:read") ? next : ["dashboard:read", ...next];
+    });
+  }
+
+  function resetToDefaults() {
+    setPermissions(rolePermissions[role]);
+  }
 
   async function handleSave() {
     setSaving(true);
     setError("");
     try {
-      await adminUpdateRole(user.uid, role, await getIdToken());
-      toast({ title: "Role updated", description: `${user.name} → ${formatRole(role)}`, variant: "success" });
+      const nextPermissions: Permission[] = permissions.includes("dashboard:read")
+        ? permissions
+        : ["dashboard:read", ...permissions];
+      await adminUpdateRole(user.uid, role, nextPermissions, await getIdToken());
+      toast({ title: "Access updated", description: `${user.name} → ${formatRole(role)}`, variant: "success" });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed.");
@@ -432,11 +481,11 @@ function EditRoleModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 p-4">
-      <div className="w-full max-w-sm rounded-xl bg-white shadow-xl">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
         <header className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
           <div>
             <p className="text-xs font-semibold uppercase text-lime-700">Administration</p>
-            <h2 className="mt-0.5 text-base font-semibold text-emerald-950">Change role</h2>
+            <h2 className="mt-0.5 text-base font-semibold text-emerald-950">Role & access</h2>
             <p className="mt-0.5 text-sm text-zinc-500">{user.name}</p>
           </div>
           <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100">
@@ -444,29 +493,68 @@ function EditRoleModal({
           </button>
         </header>
 
-        <div className="space-y-3 p-5">
-          {ROLES.map((r) => (
-            <label key={r} className="flex cursor-pointer items-center gap-3 rounded-md border border-zinc-200 px-4 py-3 has-checked:border-emerald-700 has-checked:bg-emerald-50/50">
-              <input
-                type="radio"
-                name="role"
-                value={r}
-                checked={role === r}
-                onChange={() => setRole(r)}
-                className="accent-emerald-700"
-              />
-              <div>
-                <p className="text-sm font-medium text-emerald-950">{formatRole(r)}</p>
-              </div>
-            </label>
-          ))}
+        <div className="space-y-5 p-5">
+          <section>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-emerald-950">Role</h3>
+              <button
+                type="button"
+                onClick={resetToDefaults}
+                className="flex h-8 items-center gap-2 rounded-md border border-zinc-200 px-3 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Defaults
+              </button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {ROLES.map((r) => (
+                <label key={r} className="flex cursor-pointer items-center gap-3 rounded-md border border-zinc-200 px-4 py-3 has-checked:border-emerald-700 has-checked:bg-emerald-50/50">
+                  <input
+                    type="radio"
+                    name="role"
+                    value={r}
+                    checked={role === r}
+                    onChange={() => handleRoleChange(r)}
+                    className="accent-emerald-700"
+                  />
+                  <span className="text-sm font-medium text-emerald-950">{formatRole(r)}</span>
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h3 className="mb-2 text-sm font-semibold text-emerald-950">Module access</h3>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {allPermissions.map((permission) => (
+                <label
+                  key={permission}
+                  className="flex cursor-pointer items-center gap-3 rounded-md border border-zinc-200 px-4 py-3 has-checked:border-emerald-700 has-checked:bg-emerald-50/50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={permissions.includes(permission)}
+                    disabled={permission === "dashboard:read"}
+                    onChange={() => togglePermission(permission)}
+                    className="accent-emerald-700 disabled:opacity-60"
+                  />
+                  <span className="text-sm font-medium text-emerald-950">{permissionLabels[permission]}</span>
+                </label>
+              ))}
+            </div>
+          </section>
           {error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
         </div>
 
         <footer className="flex justify-end gap-3 border-t border-zinc-100 px-5 py-4">
           <button type="button" onClick={onClose} className="h-10 rounded-md border border-zinc-300 px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-50">Cancel</button>
-          <button type="button" disabled={saving || role === user.role} onClick={handleSave} className="h-10 rounded-md bg-emerald-700 px-5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60">
-            {saving ? "Saving…" : "Save role"}
+          <button
+            type="button"
+            disabled={saving || (role === user.role && samePermissions(permissions, user.permissions))}
+            onClick={handleSave}
+            className="h-10 rounded-md bg-emerald-700 px-5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+          >
+            {saving ? "Saving…" : "Save access"}
           </button>
         </footer>
       </div>

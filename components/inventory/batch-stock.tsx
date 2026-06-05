@@ -15,7 +15,7 @@ import {
   subscribeBatches,
   subscribeProducts,
 } from "@/lib/services/inventory.service";
-import { canAccess } from "@/lib/utils/rbac";
+import { hasPermission } from "@/lib/utils/rbac";
 import {
   batchReceiptSchema,
   type BatchReceiptInput,
@@ -101,7 +101,7 @@ const statusStyles: Record<StockState, string> = {
 };
 
 export function BatchStock() {
-  const { user, appUser, role } = useAuth();
+  const { user, appUser, role, permissions } = useAuth();
   const { toast } = useToast();
   const [batches, setBatches] = useState<Batch[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -201,7 +201,7 @@ export function BatchStock() {
   const activeProducts = products.filter((product) => product.is_active);
   const actor =
     user && appUser && role ? { uid: user.uid, name: appUser.name, role } : null;
-  const canManage = canAccess(role, "inventory:write");
+  const canManage = hasPermission(permissions, "inventory:write");
 
   return (
     <div className="space-y-5">

@@ -1,5 +1,35 @@
 import type { Permission, UserRole } from "@/types";
 
+export const allPermissions: Permission[] = [
+  "dashboard:read",
+  "pos:write",
+  "wholesale:write",
+  "inventory:write",
+  "purchasing:write",
+  "customers:write",
+  "suppliers:write",
+  "trace:read",
+  "reports:read",
+  "settings:write",
+  "users:write",
+  "audit:read",
+];
+
+export const permissionLabels: Record<Permission, string> = {
+  "dashboard:read": "Dashboard",
+  "pos:write": "Point of Sale",
+  "wholesale:write": "Wholesale",
+  "inventory:write": "Inventory",
+  "purchasing:write": "Purchasing",
+  "customers:write": "Customers",
+  "suppliers:write": "Suppliers",
+  "trace:read": "Traceability",
+  "reports:read": "Reports",
+  "settings:write": "Settings",
+  "users:write": "User Management",
+  "audit:read": "Audit Logs",
+};
+
 export const rolePermissions: Record<UserRole, Permission[]> = {
   OWNER: [
     "dashboard:read",
@@ -49,6 +79,22 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
 
 export function canAccess(role: UserRole | null, permission: Permission) {
   return role ? rolePermissions[role].includes(permission) : false;
+}
+
+export function hasPermission(permissions: Permission[], permission: Permission) {
+  return permissions.includes(permission);
+}
+
+export function normalizePermissions(
+  role: UserRole,
+  permissions?: Permission[] | null,
+) {
+  const validPermissions = new Set(allPermissions);
+  const normalized = Array.from(
+    new Set((permissions ?? []).filter((item) => validPermissions.has(item))),
+  );
+
+  return normalized.length > 0 ? normalized : rolePermissions[role];
 }
 
 export function formatRole(role: UserRole) {

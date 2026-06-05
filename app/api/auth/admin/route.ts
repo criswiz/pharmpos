@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
-import { rolePermissions } from "@/lib/utils/rbac";
+import { allPermissions, normalizePermissions, rolePermissions } from "@/lib/utils/rbac";
+import type { Permission } from "@/types";
 
 const ROLE_ENUM = z.enum(["OWNER", "STORE_MANAGER", "RETAIL_STAFF", "WHOLESALE_STAFF", "SYS_ADMIN"]);
+const permissionSchema = z.custom<Permission>(
+  (value) => typeof value === "string" && allPermissions.includes(value as Permission),
+);
 
 const createUserSchema = z.object({
   name: z.string().min(2),
@@ -12,7 +16,12 @@ const createUserSchema = z.object({
 });
 
 const updateUserSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("update_role"), uid: z.string().min(1), role: ROLE_ENUM }),
+  z.object({
+    action: z.literal("update_role"),
+    uid: z.string().min(1),
+    role: ROLE_ENUM,
+    permissions: z.array(permissionSchema).min(1).optional(),
+  }),
   z.object({ action: z.literal("toggle_active"), uid: z.string().min(1), active: z.boolean() }),
   z.object({ action: z.literal("unlock"), uid: z.string().min(1) }),
   z.object({ action: z.literal("reset_password"), uid: z.string().min(1) }),
@@ -27,19 +36,33 @@ async function verifyAdmin(request: Request) {
 
   const decoded = await adminAuth.verifyIdToken(token);
   const roleSnap = await adminDb.collection("roles").doc(decoded.uid).get();
-  const role = roleSnap.data()?.role;
+  const roleRecord = roleSnap.data();
+  const role = ROLE_ENUM.safeParse(roleRecord?.role);
+  const permissions = role.success
+    ? normalizePermissions(role.data, roleRecord?.permissions as Permission[] | undefined)
+    : [];
 
-  if (!["OWNER", "SYS_ADMIN"].includes(role)) {
+  if (!role.success || (!["OWNER", "SYS_ADMIN"].includes(role.data) && !permissions.includes("users:write"))) {
     throw Object.assign(new Error("Insufficient permission"), { status: 403 });
   }
 
-  return { uid: decoded.uid, role };
+  return { uid: decoded.uid, role: role.data, permissions };
 }
 
 function shopAccessForRole(role: z.infer<typeof ROLE_ENUM>) {
   if (role === "RETAIL_STAFF") return ["retail"];
   if (role === "WHOLESALE_STAFF") return ["wholesale"];
   return ["retail", "wholesale", "shared"];
+}
+
+function shopAccessForPermissions(permissions: Permission[]) {
+  const access = new Set<"retail" | "wholesale" | "shared">();
+  if (permissions.includes("pos:write")) access.add("retail");
+  if (permissions.includes("wholesale:write")) access.add("wholesale");
+  if (permissions.some((permission) => !["pos:write", "wholesale:write"].includes(permission))) {
+    access.add("shared");
+  }
+  return Array.from(access);
 }
 
 export async function POST(request: Request) {
@@ -132,10 +155,11 @@ export async function PATCH(request: Request) {
 
     switch (data.action) {
       case "update_role": {
+        const permissions = normalizePermissions(data.role, data.permissions);
         await adminDb.collection("roles").doc(data.uid).update({
           role: data.role,
-          permissions: rolePermissions[data.role],
-          shopAccess: shopAccessForRole(data.role),
+          permissions,
+          shopAccess: shopAccessForPermissions(permissions),
         });
         await adminDb.collection("auditLogs").add({
           timestamp: now,
@@ -145,7 +169,7 @@ export async function PATCH(request: Request) {
           action: "USER_ROLE_CHANGED",
           entity_type: "user",
           entity_id: data.uid,
-          details: { new_role: data.role },
+          details: { new_role: data.role, permissions },
         });
         return NextResponse.json({ success: true });
       }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Boxes, FileText, LayoutDashboard, PackageSearch, ShoppingCart } from "lucide-react";
-import { canAccess } from "@/lib/utils/rbac";
+import { hasPermission } from "@/lib/utils/rbac";
 import { cn } from "@/lib/utils/cn";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type { Permission } from "@/types";
@@ -23,8 +23,8 @@ const items: Array<{
 
 export function MobileNav() {
   const pathname = usePathname();
-  const { role } = useAuth();
-  const visibleItems = items.filter((item) => canAccess(role, item.permission));
+  const { permissions } = useAuth();
+  const visibleItems = items.filter((item) => hasPermission(permissions, item.permission));
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-emerald-900/10 bg-white px-2 py-2 lg:hidden">

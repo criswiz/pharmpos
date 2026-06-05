@@ -22,6 +22,13 @@ service cloud.firestore {
       return signedIn() && role() in roles;
     }
 
+    function hasPermission(permission) {
+      return signedIn()
+        && exists(rolePath())
+        && get(rolePath()).data.permissions is list
+        && permission in get(rolePath()).data.permissions;
+    }
+
     function isOwner() {
       return hasAnyRole(['OWNER']);
     }
@@ -34,24 +41,47 @@ service cloud.firestore {
       return hasAnyRole(['OWNER', 'STORE_MANAGER', 'SYS_ADMIN']);
     }
 
+    function canManageUsers() {
+      return isSysAdmin() || isOwner() || hasPermission('users:write');
+    }
+
+    function canManageSettings() {
+      return isSysAdmin() || isOwner() || hasPermission('settings:write');
+    }
+
+    function canManageInventory() {
+      return isManager() || hasPermission('inventory:write');
+    }
+
+    function canManageSuppliers() {
+      return isManager() || hasPermission('suppliers:write');
+    }
+
+    function canManagePurchasing() {
+      return isManager() || hasPermission('purchasing:write');
+    }
+
     function isWholesale() {
-      return hasAnyRole(['OWNER', 'STORE_MANAGER', 'WHOLESALE_STAFF', 'SYS_ADMIN']);
+      return hasAnyRole(['OWNER', 'STORE_MANAGER', 'WHOLESALE_STAFF', 'SYS_ADMIN'])
+        || hasPermission('wholesale:write');
     }
 
     function canSell() {
-      return hasAnyRole(['OWNER', 'STORE_MANAGER', 'RETAIL_STAFF', 'WHOLESALE_STAFF', 'SYS_ADMIN']);
+      return hasAnyRole(['OWNER', 'STORE_MANAGER', 'RETAIL_STAFF', 'WHOLESALE_STAFF', 'SYS_ADMIN'])
+        || hasPermission('pos:write')
+        || hasPermission('wholesale:write');
     }
 
     match /auditLogs/{logId} {
-      allow read: if hasAnyRole(['OWNER', 'STORE_MANAGER', 'SYS_ADMIN']);
+      allow read: if hasAnyRole(['OWNER', 'STORE_MANAGER', 'SYS_ADMIN']) || hasPermission('audit:read');
       allow create: if signedIn() && request.resource.data.user_id == request.auth.uid;
       allow update, delete: if false;
     }
 
     match /users/{uid} {
-      allow read: if isSysAdmin() || isOwner() || request.auth.uid == uid;
-      allow create: if isSysAdmin() || isOwner();
-      allow update: if isSysAdmin() || isOwner()
+      allow read: if canManageUsers() || request.auth.uid == uid;
+      allow create: if canManageUsers();
+      allow update: if (canManageUsers() && request.auth.uid != uid)
         || (request.auth.uid == uid
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['last_login', 'failed_attempts']));
@@ -59,26 +89,26 @@ service cloud.firestore {
     }
 
     match /roles/{uid} {
-      allow read: if signedIn() && (request.auth.uid == uid || isSysAdmin() || isOwner());
-      allow write: if isSysAdmin() || isOwner();
+      allow read: if signedIn() && (request.auth.uid == uid || canManageUsers());
+      allow write: if canManageUsers() && request.auth.uid != uid;
       allow delete: if false;
     }
 
     match /settings/{settingKey} {
       allow read: if signedIn();
-      allow write: if isSysAdmin() || isOwner();
+      allow write: if canManageSettings();
     }
 
     match /products/{productId} {
       allow read: if signedIn();
-      allow write: if isManager();
+      allow write: if canManageInventory();
       allow delete: if false;
     }
 
     match /batches/{batchId} {
       allow read: if signedIn();
-      allow create: if isManager();
-      allow update: if isManager()
+      allow create: if canManageInventory();
+      allow update: if canManageInventory()
         || (canSell()
           && resource.data.status == 'active'
           && request.resource.data.diff(resource.data).affectedKeys()
@@ -98,7 +128,7 @@ service cloud.firestore {
 
     match /batchBarcodes/{barcodeId} {
       allow read: if signedIn();
-      allow write: if isManager();
+      allow write: if canManageInventory();
       allow delete: if false;
     }
 
@@ -118,7 +148,7 @@ service cloud.firestore {
         && request.resource.data.status == 'completed'
         && request.resource.data.total > 0
         && request.resource.data.item_count > 0;
-      allow update: if isManager();
+      allow update: if canManageInventory();
       allow delete: if false;
     }
 
@@ -135,25 +165,25 @@ service cloud.firestore {
 
     match /customers/{customerId} {
       allow read: if signedIn();
-      allow write: if isWholesale();
+      allow write: if isWholesale() || hasPermission('customers:write');
       allow delete: if false;
     }
 
     match /suppliers/{supplierId} {
       allow read: if signedIn();
-      allow write: if isManager();
+      allow write: if canManageSuppliers();
       allow delete: if false;
     }
 
     match /purchaseOrders/{poId} {
       allow read: if signedIn();
-      allow write: if isManager();
+      allow write: if canManagePurchasing();
       allow delete: if false;
     }
 
     match /goodsReceivedNotes/{grnId} {
       allow read: if signedIn();
-      allow write: if isManager();
+      allow write: if canManagePurchasing();
       allow delete: if false;
     }
 
@@ -162,25 +192,25 @@ service cloud.firestore {
       allow update: if isWholesale()
         && !(request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])
           && request.resource.data.status == 'void'
-          && !isManager());
+          && !canManageInventory());
       allow delete: if false;
     }
 
     match /counters/{counterId} {
       allow read: if signedIn();
-      allow write: if isWholesale();
+      allow write: if isWholesale() || canManagePurchasing();
       allow delete: if false;
     }
 
     match /reorderAlerts/{alertId} {
       allow read: if signedIn();
-      allow write: if isManager();
+      allow write: if canManageInventory();
       allow delete: if false;
     }
 
     match /saleReturns/{returnId} {
       allow read: if signedIn();
-      allow create: if isManager()
+      allow create: if canManageInventory()
         && request.resource.data.created_by == request.auth.uid
         && request.resource.data.status == 'completed'
         && request.resource.data.total_refund > 0;

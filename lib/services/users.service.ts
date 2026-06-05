@@ -1,9 +1,11 @@
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { AppUser, RoleRecord, UserRole } from "@/types";
+import { normalizePermissions } from "@/lib/utils/rbac";
+import type { AppUser, Permission, RoleRecord, UserRole } from "@/types";
 
 export interface UserWithRole extends AppUser {
   role: UserRole | null;
+  permissions: Permission[];
 }
 
 export function subscribeUsers(
@@ -22,6 +24,9 @@ export function subscribeUsers(
       usersSnapshot.map((u) => ({
         ...u,
         role: rolesSnapshot[u.uid]?.role ?? null,
+        permissions: rolesSnapshot[u.uid]?.role
+          ? normalizePermissions(rolesSnapshot[u.uid].role, rolesSnapshot[u.uid].permissions)
+          : [],
       })),
     );
   }
@@ -76,9 +81,10 @@ export async function adminCreateUser(
 export async function adminUpdateRole(
   uid: string,
   role: UserRole,
+  permissions: Permission[],
   idToken: string,
 ): Promise<void> {
-  await adminFetch("PATCH", { action: "update_role", uid, role }, idToken);
+  await adminFetch("PATCH", { action: "update_role", uid, role, permissions }, idToken);
 }
 
 export async function adminToggleActive(

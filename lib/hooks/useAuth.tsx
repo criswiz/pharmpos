@@ -18,7 +18,7 @@ import {
   type ReactNode,
 } from "react";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/client";
-import { rolePermissions } from "@/lib/utils/rbac";
+import { normalizePermissions } from "@/lib/utils/rbac";
 import type { AppUser, Permission, RoleRecord, UserRole } from "@/types";
 
 interface AuthContextValue {
@@ -51,9 +51,7 @@ async function loadProfile(user: User) {
 
   const roleRecord = roleSnap.data() as RoleRecord;
   const role = roleRecord.role;
-  const permissions = roleRecord.permissions?.length
-    ? roleRecord.permissions
-    : rolePermissions[role];
+  const permissions = normalizePermissions(role, roleRecord.permissions);
 
   void updateDoc(doc(db, "users", user.uid), {
     last_login: serverTimestamp(),

@@ -23,7 +23,7 @@ import { subscribeProducts } from "@/lib/services/inventory.service";
 import { subscribeBatches } from "@/lib/services/inventory.service";
 import { subscribeCustomers } from "@/lib/services/customer.service";
 import { getPharmacyInfo } from "@/lib/services/settings.service";
-import { canAccess } from "@/lib/utils/rbac";
+import { hasPermission } from "@/lib/utils/rbac";
 import { allocateFefoStock } from "@/lib/utils/fefo";
 import {
   convertToInvoice,
@@ -183,7 +183,7 @@ function openInvoicePdf(doc: WholesaleDocument, pharmacy: PharmacyInfo) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function WholesaleOrders() {
-  const { user, appUser, role } = useAuth();
+  const { user, appUser, role, permissions } = useAuth();
   const { toast } = useToast();
   const [docs, setDocs] = useState<WholesaleDocument[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -202,7 +202,7 @@ export function WholesaleOrders() {
   const [actionPending, setActionPending] = useState<string | null>(null);
 
   const actor = user && appUser && role ? { uid: user.uid, name: appUser.name, role } : null;
-  const isManager = canAccess(role, "inventory:write");
+  const isManager = hasPermission(permissions, "inventory:write");
 
   useEffect(() => {
     getPharmacyInfo().then(setPharmacy).catch(() => undefined);
