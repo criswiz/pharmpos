@@ -54,9 +54,9 @@ secrets or environment values.
 
 ## Next Up
 
-1. Wholesale orders module (channel-specific POS, credit-based payments, invoice download).
-2. GRN → PO status auto-link (when GRN references a PO number, update PO to "received").
-3. Documents: no Firebase Storage — staff download PDFs/CSVs and file manually in Google Drive.
+1. GRN → PO status auto-link (when GRN references a PO number, update PO to "received").
+2. Shopify-style product image upload (currently logo_url is a text field).
+3. Expiry status auto-update via Firestore scheduled function or client-side sync.
 
 ## Verification
 
@@ -79,6 +79,23 @@ secrets or environment values.
   batch decrements must reference a new sale in the same transaction. Verified
   with `bun run lint`, `bun run typecheck`, `bun run build`, and the Firestore
   emulator.
+- 2026-06-05: Wholesale orders module — the last scaffold page.
+  WholesaleDocument type (proforma | invoice, draft | confirmed | partially_paid |
+  paid | void), WholesaleLineItem (product, batch_id populated at confirmation),
+  WholesalePaymentMethod (cash/momo/card/credit).
+  wholesale.service.ts: createWholesaleDoc (proforma → no stock, invoice → FEFO
+  allocate wholesale+shared batches, create saleTransactions channel:wholesale,
+  deduct batches, create stockTransactions/saleLineItems, update customer balance
+  via increment if credit), convertToInvoice (re-allocates FEFO from proforma
+  line items and confirms), recordPayment (decrements customer balance for credit
+  invoices), voidWholesaleDoc (restores unpaid credit balance on void).
+  UI: document list with type/status/search filters, action buttons per row
+  (Download PDF, Confirm proforma with inline payment-method picker, Record
+  payment, Void for managers), create form with dynamic line items auto-priced
+  from FEFO wholesale price. Invoice PDF opens a branded print window with
+  letterhead, itemised table, balance due. Uses existing documents Firestore
+  collection and counters/proforma + counters/invoice for year-scoped numbering.
+  Verified with lint, typecheck, build.
 - 2026-06-05: Reports module (4 tabs) and export utilities.
   lib/utils/export.ts: downloadCsv (PapaParse unparse + BOM for Excel, triggers
   browser download) and openPrintReport (styled HTML table in new window with

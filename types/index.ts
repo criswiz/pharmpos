@@ -214,6 +214,43 @@ export interface ReturnLine {
   line_total: number;
 }
 
+export type WholesalePaymentMethod = "cash" | "momo" | "card" | "credit";
+export type WholesaleDocStatus = "draft" | "confirmed" | "partially_paid" | "paid" | "void";
+export type WholesaleDocType = "proforma" | "invoice";
+
+export interface WholesaleLineItem {
+  product_id: string;
+  product_name_snapshot: string;
+  batch_id?: string;
+  batch_number_snapshot?: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+}
+
+export interface WholesaleDocument {
+  id: string;
+  type: WholesaleDocType;
+  doc_number: string;
+  customer_id: string;
+  customer_name_snapshot: string;
+  customer_phone_snapshot?: string;
+  customer_address_snapshot?: string;
+  line_items: WholesaleLineItem[];
+  subtotal: number;
+  discount_amount: number;
+  total: number;
+  payment_method?: WholesalePaymentMethod;
+  amount_paid: number;
+  proforma_id?: string;
+  notes?: string;
+  status: WholesaleDocStatus;
+  created_at: FirestoreDate;
+  updated_at?: FirestoreDate;
+  created_by: string;
+  created_by_name_snapshot: string;
+}
+
 export interface Customer {
   id: string;
   name: string;
