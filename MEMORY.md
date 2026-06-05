@@ -54,9 +54,9 @@ secrets or environment values.
 
 ## Next Up
 
-1. Reports (sales by period, stock valuation, expiry report — with CSV export).
-2. Wholesale orders module (channel-specific POS, credit-based payments, invoice).
-3. GRN → PO status auto-link (when GRN.po_number_snapshot matches a PO, update it to "received").
+1. Wholesale orders module (channel-specific POS, credit-based payments, invoice download).
+2. GRN → PO status auto-link (when GRN references a PO number, update PO to "received").
+3. Documents: no Firebase Storage — staff download PDFs/CSVs and file manually in Google Drive.
 
 ## Verification
 
@@ -79,7 +79,22 @@ secrets or environment values.
   batch decrements must reference a new sale in the same transaction. Verified
   with `bun run lint`, `bun run typecheck`, `bun run build`, and the Firestore
   emulator.
-- 2026-06-04: Customers and Drug Traceability.
+- 2026-06-05: Reports module (4 tabs) and export utilities.
+  lib/utils/export.ts: downloadCsv (PapaParse unparse + BOM for Excel, triggers
+  browser download) and openPrintReport (styled HTML table in new window with
+  window.print() — staff save as PDF). Added @types/papaparse dev dependency.
+  Reports page: tab navigation (Sales | Stock Valuation | Expiry | GRN History).
+  Sales tab: date range + channel filter → getDocs query using existing channel+
+  sale_date composite index → summary stats (total, txns, avg, discounts) + daily
+  breakdown table with payment method columns + CSV + PDF export.
+  Stock Valuation tab: live from products+batches subscriptions, groups active
+  batches per product, computes cost/retail values and earliest expiry.
+  Expiry tab: live, threshold selector (7/14/30/60/90 days or expired only),
+  colour-coded days-left column.
+  GRN History tab: live from subscribeGrns, client-side date range filter.
+  All tabs have Export CSV and Export PDF buttons.
+  No Firebase Storage or Google Drive API — staff download files and file manually.
+- 2026-06-05: Customers and Drug Traceability.
   Customers: full CRUD (name, phone, email, type: retail/wholesale/both, credit limit,
   current balance, address, notes, active status). Over-limit warning banner on the
   list page. subscribeCustomers (ordered by name) + createCustomer + updateCustomer
