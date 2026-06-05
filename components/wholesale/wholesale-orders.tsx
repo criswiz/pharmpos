@@ -23,7 +23,7 @@ import { subscribeProducts } from "@/lib/services/inventory.service";
 import { subscribeBatches } from "@/lib/services/inventory.service";
 import { subscribeCustomers } from "@/lib/services/customer.service";
 import { getPharmacyInfo } from "@/lib/services/settings.service";
-import { hasPermission } from "@/lib/utils/rbac";
+import { canAdjustStock } from "@/lib/utils/rbac";
 import { allocateFefoStock } from "@/lib/utils/fefo";
 import {
   convertToInvoice,
@@ -202,7 +202,7 @@ export function WholesaleOrders() {
   const [actionPending, setActionPending] = useState<string | null>(null);
 
   const actor = user && appUser && role ? { uid: user.uid, name: appUser.name, role } : null;
-  const isManager = hasPermission(permissions, "inventory:write");
+  const isManager = canAdjustStock(permissions);
 
   useEffect(() => {
     getPharmacyInfo().then(setPharmacy).catch(() => undefined);

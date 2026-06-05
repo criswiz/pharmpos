@@ -1,6 +1,6 @@
 # PharmPOS Project Memory
 
-Last updated: 2026-06-04
+Last updated: 2026-06-05
 
 ## Purpose
 
@@ -20,6 +20,8 @@ secrets or environment values.
 - User Management supports per-user module permission overrides stored on
   `roles/{uid}.permissions`; route guards, navigation, admin API checks, and
   Firestore rules honor the stored permission list.
+- Inventory permissions are granular: product creation, retail/wholesale/shared
+  stock receiving, stock adjustment, and batch recall can be assigned separately.
 - The application shell, sidebar, mobile navigation, loading skeletons, and toast
   notifications are implemented.
 - Inventory supports a realtime product catalogue plus batch receiving and stock
@@ -70,6 +72,17 @@ secrets or environment values.
 
 ## Session Notes
 
+- 2026-06-05: Split inventory permissions for warehouse/shop workflows.
+  Added `inventory:read`, `products:write`, `stock:receive:retail`,
+  `stock:receive:wholesale`, `stock:receive:shared`, `stock:adjust`, and
+  `stock:recall`. Inventory route/nav now appears for any inventory-related
+  permission. Product creation button requires product/full-inventory access.
+  Batch receiving only shows stock pools the user can receive into; adjustment
+  and recall buttons use separate permissions. Firestore rules enforce product
+  writes, batch creates by stock pool, stock adjustments, recalls, returns, and
+  sale/document voids with the new granular permissions. Verified with
+  `bun run lint`, `bun run typecheck`, `bun run build`, and
+  `firebase emulators:exec --only firestore "true"`.
 - 2026-06-05: Added per-user module access editing to User Management.
   `roles/{uid}.permissions` is now surfaced in the users table and editable in
   the role/access modal, with a role-default reset. Auth hydration normalizes

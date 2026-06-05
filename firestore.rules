@@ -49,8 +49,38 @@ service cloud.firestore {
       return isSysAdmin() || isOwner() || hasPermission('settings:write');
     }
 
-    function canManageInventory() {
-      return isManager() || hasPermission('inventory:write');
+    function hasFullInventoryAccess() {
+      return isSysAdmin() || isOwner() || hasPermission('inventory:write');
+    }
+
+    function canWriteProducts() {
+      return hasFullInventoryAccess() || hasPermission('products:write');
+    }
+
+    function canReceiveRetailStock() {
+      return hasFullInventoryAccess() || hasPermission('stock:receive:retail');
+    }
+
+    function canReceiveWholesaleStock() {
+      return hasFullInventoryAccess() || hasPermission('stock:receive:wholesale');
+    }
+
+    function canReceiveSharedStock() {
+      return hasFullInventoryAccess() || hasPermission('stock:receive:shared');
+    }
+
+    function canReceiveStockContext(context) {
+      return (context == 'retail' && canReceiveRetailStock())
+        || (context == 'wholesale' && canReceiveWholesaleStock())
+        || (context == 'shared' && canReceiveSharedStock());
+    }
+
+    function canAdjustStock() {
+      return hasFullInventoryAccess() || hasPermission('stock:adjust');
+    }
+
+    function canRecallStock() {
+      return hasFullInventoryAccess() || hasPermission('stock:recall');
     }
 
     function canManageSuppliers() {
@@ -101,14 +131,22 @@ service cloud.firestore {
 
     match /products/{productId} {
       allow read: if signedIn();
-      allow write: if canManageInventory();
+      allow write: if canWriteProducts();
       allow delete: if false;
     }
 
     match /batches/{batchId} {
       allow read: if signedIn();
-      allow create: if canManageInventory();
-      allow update: if canManageInventory()
+      allow create: if canReceiveStockContext(request.resource.data.shop_context);
+      allow update: if (canAdjustStock()
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['quantity_remaining', 'status'])
+          && request.resource.data.quantity_remaining >= 0
+          && request.resource.data.status in ['active', 'depleted'])
+        || (canRecallStock()
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status'])
+          && request.resource.data.status == 'recalled')
         || (canSell()
           && resource.data.status == 'active'
           && request.resource.data.diff(resource.data).affectedKeys()
@@ -128,7 +166,7 @@ service cloud.firestore {
 
     match /batchBarcodes/{barcodeId} {
       allow read: if signedIn();
-      allow write: if canManageInventory();
+      allow write: if canWriteProducts();
       allow delete: if false;
     }
 
@@ -136,7 +174,17 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn()
         && request.resource.data.created_by == request.auth.uid
-        && request.resource.data.quantity_change != 0;
+        && request.resource.data.quantity_change != 0
+        && ((request.resource.data.type == 'receipt'
+            && canReceiveStockContext(request.resource.data.shop_context))
+          || (request.resource.data.type == 'adjustment'
+            && canAdjustStock())
+          || (request.resource.data.type == 'recall'
+            && canRecallStock())
+          || (request.resource.data.type == 'sale'
+            && canSell())
+          || (request.resource.data.type == 'return'
+            && canAdjustStock()));
       allow update, delete: if false;
     }
 
@@ -148,7 +196,7 @@ service cloud.firestore {
         && request.resource.data.status == 'completed'
         && request.resource.data.total > 0
         && request.resource.data.item_count > 0;
-      allow update: if canManageInventory();
+      allow update: if canAdjustStock();
       allow delete: if false;
     }
 
@@ -192,7 +240,7 @@ service cloud.firestore {
       allow update: if isWholesale()
         && !(request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])
           && request.resource.data.status == 'void'
-          && !canManageInventory());
+          && !canAdjustStock());
       allow delete: if false;
     }
 
@@ -204,13 +252,13 @@ service cloud.firestore {
 
     match /reorderAlerts/{alertId} {
       allow read: if signedIn();
-      allow write: if canManageInventory();
+      allow write: if canWriteProducts();
       allow delete: if false;
     }
 
     match /saleReturns/{returnId} {
       allow read: if signedIn();
-      allow create: if canManageInventory()
+      allow create: if canAdjustStock()
         && request.resource.data.created_by == request.auth.uid
         && request.resource.data.status == 'completed'
         && request.resource.data.total_refund > 0;

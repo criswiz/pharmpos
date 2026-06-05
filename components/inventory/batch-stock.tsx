@@ -15,7 +15,12 @@ import {
   subscribeBatches,
   subscribeProducts,
 } from "@/lib/services/inventory.service";
-import { hasPermission } from "@/lib/utils/rbac";
+import {
+  allowedStockContexts,
+  canAdjustStock,
+  canRecallStock,
+  type StockContext,
+} from "@/lib/utils/rbac";
 import {
   batchReceiptSchema,
   type BatchReceiptInput,
@@ -57,6 +62,12 @@ const receiptDefaults: BatchReceiptInput = {
   wholesale_price: 0,
   shop_context: "shared",
   grn_id: "",
+};
+
+const stockContextLabels: Record<StockContext, string> = {
+  shared: "Shared",
+  retail: "Retail",
+  wholesale: "Wholesale",
 };
 
 function toDate(value: FirestoreDate) {
@@ -201,7 +212,10 @@ export function BatchStock() {
   const activeProducts = products.filter((product) => product.is_active);
   const actor =
     user && appUser && role ? { uid: user.uid, name: appUser.name, role } : null;
-  const canManage = hasPermission(permissions, "inventory:write");
+  const allowedReceiveContexts = allowedStockContexts(permissions);
+  const canReceiveStock = allowedReceiveContexts.length > 0;
+  const canAdjust = canAdjustStock(permissions);
+  const canRecall = canRecallStock(permissions);
 
   return (
     <div className="space-y-5">
@@ -216,7 +230,7 @@ export function BatchStock() {
         <button
           type="button"
           onClick={() => setFormOpen(true)}
-          disabled={activeProducts.length === 0}
+          disabled={activeProducts.length === 0 || !canReceiveStock}
           className="flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <PackagePlus className="h-4 w-4" />
@@ -253,9 +267,15 @@ export function BatchStock() {
         />
       </section>
 
-      {activeProducts.length === 0 && !loading ? (
+      {activeProducts.length === 0 && canReceiveStock && !loading ? (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           Add an active product before receiving stock.
+        </p>
+      ) : null}
+
+      {!canReceiveStock ? (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Your account can view inventory but cannot receive new stock.
         </p>
       ) : null}
 
@@ -364,7 +384,7 @@ export function BatchStock() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
-                            {canManage && (state === "active" || state === "expiring") ? (
+                            {canAdjust && (state === "active" || state === "expiring") ? (
                               <button
                                 type="button"
                                 title="Adjust stock"
@@ -374,7 +394,7 @@ export function BatchStock() {
                                 <SlidersHorizontal className="h-3.5 w-3.5" />
                               </button>
                             ) : null}
-                            {canManage && batch.status !== "recalled" && batch.status !== "depleted" ? (
+                            {canRecall && batch.status !== "recalled" && batch.status !== "depleted" ? (
                               <button
                                 type="button"
                                 title="Recall batch"
@@ -413,9 +433,10 @@ export function BatchStock() {
         ) : null}
       </section>
 
-      {formOpen ? (
+      {formOpen && canReceiveStock ? (
         <BatchReceiptForm
           products={activeProducts}
+          allowedContexts={allowedReceiveContexts}
           actor={actor}
           onClose={() => setFormOpen(false)}
         />
@@ -451,10 +472,12 @@ export function BatchStock() {
 
 function BatchReceiptForm({
   products,
+  allowedContexts,
   actor,
   onClose,
 }: {
   products: Product[];
+  allowedContexts: StockContext[];
   actor: { uid: string; name: string; role: string } | null;
   onClose: () => void;
 }) {
@@ -467,7 +490,10 @@ function BatchReceiptForm({
     formState: { errors, isSubmitting },
   } = useForm<BatchReceiptInput>({
     resolver: zodResolver(batchReceiptSchema),
-    defaultValues: receiptDefaults,
+    defaultValues: {
+      ...receiptDefaults,
+      shop_context: allowedContexts[0] ?? "retail",
+    },
   });
   const selectedProductId = useWatch({ control, name: "product_id" });
   const selectedProduct = products.find((product) => product.id === selectedProductId);
@@ -477,6 +503,13 @@ function BatchReceiptForm({
 
     if (!actor || !selectedProduct) {
       const message = "Your profile and a valid product are required before receiving stock.";
+      setSubmitError(message);
+      toast({ title: "Batch not received", description: message, variant: "error" });
+      return;
+    }
+
+    if (!allowedContexts.includes(input.shop_context)) {
+      const message = "Your account cannot receive stock into that pool.";
       setSubmitError(message);
       toast({ title: "Batch not received", description: message, variant: "error" });
       return;
@@ -593,9 +626,11 @@ function BatchReceiptForm({
           </Field>
           <Field label="Stock pool" error={errors.shop_context?.message}>
             <select className={fieldClass} {...register("shop_context")}>
-              <option value="shared">Shared</option>
-              <option value="retail">Retail</option>
-              <option value="wholesale">Wholesale</option>
+              {allowedContexts.map((context) => (
+                <option key={context} value={context}>
+                  {stockContextLabels[context]}
+                </option>
+              ))}
             </select>
           </Field>
           <Field label="GRN reference (optional)" error={errors.grn_id?.message}>

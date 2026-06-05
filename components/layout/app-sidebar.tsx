@@ -17,7 +17,7 @@ import {
   Users,
   UserRoundCog,
 } from "lucide-react";
-import { formatRole, hasPermission } from "@/lib/utils/rbac";
+import { canViewInventory, formatRole, hasPermission } from "@/lib/utils/rbac";
 import { cn } from "@/lib/utils/cn";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type { Permission } from "@/types";
@@ -25,20 +25,20 @@ import type { Permission } from "@/types";
 const navItems: Array<{
   href: string;
   label: string;
-  permission: Permission;
+  canAccess: (permissions: Permission[]) => boolean;
   icon: React.ComponentType<{ className?: string }>;
 }> = [
-  { href: "/dashboard", label: "Dashboard", permission: "dashboard:read", icon: LayoutDashboard },
-  { href: "/pos", label: "Point of Sale", permission: "pos:write", icon: ShoppingCart },
-  { href: "/wholesale/orders", label: "Wholesale", permission: "wholesale:write", icon: FileText },
-  { href: "/inventory/products", label: "Inventory", permission: "inventory:write", icon: Boxes },
-  { href: "/purchasing/orders", label: "Purchase Orders", permission: "purchasing:write", icon: ClipboardList },
-  { href: "/customers", label: "Customers", permission: "customers:write", icon: Users },
-  { href: "/suppliers", label: "Suppliers", permission: "suppliers:write", icon: Truck },
-  { href: "/trace", label: "Traceability", permission: "trace:read", icon: PackageSearch },
-  { href: "/reports", label: "Reports", permission: "reports:read", icon: BarChart3 },
-  { href: "/settings", label: "Settings", permission: "settings:write", icon: Settings },
-  { href: "/users", label: "User Management", permission: "users:write", icon: UserRoundCog },
+  { href: "/dashboard", label: "Dashboard", canAccess: (permissions) => hasPermission(permissions, "dashboard:read"), icon: LayoutDashboard },
+  { href: "/pos", label: "Point of Sale", canAccess: (permissions) => hasPermission(permissions, "pos:write"), icon: ShoppingCart },
+  { href: "/wholesale/orders", label: "Wholesale", canAccess: (permissions) => hasPermission(permissions, "wholesale:write"), icon: FileText },
+  { href: "/inventory/products", label: "Inventory", canAccess: canViewInventory, icon: Boxes },
+  { href: "/purchasing/orders", label: "Purchase Orders", canAccess: (permissions) => hasPermission(permissions, "purchasing:write"), icon: ClipboardList },
+  { href: "/customers", label: "Customers", canAccess: (permissions) => hasPermission(permissions, "customers:write"), icon: Users },
+  { href: "/suppliers", label: "Suppliers", canAccess: (permissions) => hasPermission(permissions, "suppliers:write"), icon: Truck },
+  { href: "/trace", label: "Traceability", canAccess: (permissions) => hasPermission(permissions, "trace:read"), icon: PackageSearch },
+  { href: "/reports", label: "Reports", canAccess: (permissions) => hasPermission(permissions, "reports:read"), icon: BarChart3 },
+  { href: "/settings", label: "Settings", canAccess: (permissions) => hasPermission(permissions, "settings:write"), icon: Settings },
+  { href: "/users", label: "User Management", canAccess: (permissions) => hasPermission(permissions, "users:write"), icon: UserRoundCog },
 ];
 
 export function AppSidebar() {
@@ -46,7 +46,7 @@ export function AppSidebar() {
   const router = useRouter();
   const { appUser, role, permissions, signOut } = useAuth();
 
-  const visibleItems = navItems.filter((item) => hasPermission(permissions, item.permission));
+  const visibleItems = navItems.filter((item) => item.canAccess(permissions));
 
   async function handleSignOut() {
     await signOut();

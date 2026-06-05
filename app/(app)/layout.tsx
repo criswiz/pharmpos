@@ -6,29 +6,32 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { AppShellSkeleton } from "@/components/layout/app-shell-skeleton";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { hasPermission } from "@/lib/utils/rbac";
+import { canViewInventory, hasPermission } from "@/lib/utils/rbac";
 import type { Permission } from "@/types";
 
 // Map path prefixes to the permission required to view them.
 // /dashboard is omitted — dashboard:read is held by every role.
-const PATH_PERMISSIONS: Array<[string, Permission]> = [
-  ["/pos", "pos:write"],
-  ["/wholesale", "wholesale:write"],
-  ["/inventory", "inventory:write"],
-  ["/purchasing", "purchasing:write"],
-  ["/customers", "customers:write"],
-  ["/suppliers", "suppliers:write"],
-  ["/trace", "trace:read"],
-  ["/reports", "reports:read"],
-  ["/settings", "settings:write"],
-  ["/users", "users:write"],
+const PATH_ACCESS: Array<[
+  string,
+  (permissions: Permission[]) => boolean,
+]> = [
+  ["/pos", (permissions) => hasPermission(permissions, "pos:write")],
+  ["/wholesale", (permissions) => hasPermission(permissions, "wholesale:write")],
+  ["/inventory", canViewInventory],
+  ["/purchasing", (permissions) => hasPermission(permissions, "purchasing:write")],
+  ["/customers", (permissions) => hasPermission(permissions, "customers:write")],
+  ["/suppliers", (permissions) => hasPermission(permissions, "suppliers:write")],
+  ["/trace", (permissions) => hasPermission(permissions, "trace:read")],
+  ["/reports", (permissions) => hasPermission(permissions, "reports:read")],
+  ["/settings", (permissions) => hasPermission(permissions, "settings:write")],
+  ["/users", (permissions) => hasPermission(permissions, "users:write")],
 ];
 
-function getRequiredPermission(pathname: string): Permission | null {
-  for (const [prefix, permission] of PATH_PERMISSIONS) {
-    if (pathname.startsWith(prefix)) return permission;
+function canAccessPath(pathname: string, permissions: Permission[]) {
+  for (const [prefix, canAccess] of PATH_ACCESS) {
+    if (pathname.startsWith(prefix)) return canAccess(permissions);
   }
-  return null;
+  return true;
 }
 
 function getFallbackPath(permissions: Permission[]): string {
@@ -46,8 +49,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (loading) return;
     if (!user) { router.replace("/login"); return; }
 
-    const required = getRequiredPermission(pathname);
-    if (required && !hasPermission(permissions, required)) {
+    if (!canAccessPath(pathname, permissions)) {
       router.replace(getFallbackPath(permissions));
     }
   }, [loading, user, permissions, pathname, router]);
@@ -56,8 +58,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   // Hold children until the redirect resolves to avoid a flash of forbidden content.
-  const required = getRequiredPermission(pathname);
-  if (required && !hasPermission(permissions, required)) return <AppShellSkeleton />;
+  if (!canAccessPath(pathname, permissions)) return <AppShellSkeleton />;
 
   return (
     <div className="min-h-screen bg-[#F8FAF8] lg:flex">

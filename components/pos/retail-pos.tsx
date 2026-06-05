@@ -35,7 +35,7 @@ import {
 import { getPosSettings } from "@/lib/services/settings.service";
 import { subscribeBatches, subscribeProducts } from "@/lib/services/inventory.service";
 import { allocateFefoStock } from "@/lib/utils/fefo";
-import { hasPermission } from "@/lib/utils/rbac";
+import { canAdjustStock } from "@/lib/utils/rbac";
 import { usePosCart } from "@/stores/pos-cart";
 import type {
   Batch,
@@ -129,7 +129,7 @@ export function RetailPos() {
     deleteParkedSale,
   } = usePosCart();
 
-  const isManager = hasPermission(permissions, "inventory:write");
+  const isManager = canAdjustStock(permissions);
   const actor = user && appUser && role ? { uid: user.uid, name: appUser.name, role } : null;
 
   useEffect(() => {

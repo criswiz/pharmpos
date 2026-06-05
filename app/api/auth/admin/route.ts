@@ -49,17 +49,15 @@ async function verifyAdmin(request: Request) {
   return { uid: decoded.uid, role: role.data, permissions };
 }
 
-function shopAccessForRole(role: z.infer<typeof ROLE_ENUM>) {
-  if (role === "RETAIL_STAFF") return ["retail"];
-  if (role === "WHOLESALE_STAFF") return ["wholesale"];
-  return ["retail", "wholesale", "shared"];
-}
-
 function shopAccessForPermissions(permissions: Permission[]) {
   const access = new Set<"retail" | "wholesale" | "shared">();
-  if (permissions.includes("pos:write")) access.add("retail");
-  if (permissions.includes("wholesale:write")) access.add("wholesale");
-  if (permissions.some((permission) => !["pos:write", "wholesale:write"].includes(permission))) {
+  if (permissions.includes("pos:write") || permissions.includes("stock:receive:retail")) {
+    access.add("retail");
+  }
+  if (permissions.includes("wholesale:write") || permissions.includes("stock:receive:wholesale")) {
+    access.add("wholesale");
+  }
+  if (permissions.includes("inventory:write") || permissions.includes("stock:receive:shared")) {
     access.add("shared");
   }
   return Array.from(access);
@@ -105,7 +103,7 @@ export async function POST(request: Request) {
       transaction.set(adminDb.collection("roles").doc(user.uid), {
         role,
         permissions: rolePermissions[role],
-        shopAccess: shopAccessForRole(role),
+        shopAccess: shopAccessForPermissions(rolePermissions[role]),
       });
 
       transaction.set(adminDb.collection("auditLogs").doc(), {

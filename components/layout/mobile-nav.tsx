@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Boxes, FileText, LayoutDashboard, PackageSearch, ShoppingCart } from "lucide-react";
-import { hasPermission } from "@/lib/utils/rbac";
+import { canViewInventory, hasPermission } from "@/lib/utils/rbac";
 import { cn } from "@/lib/utils/cn";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type { Permission } from "@/types";
@@ -11,20 +11,20 @@ import type { Permission } from "@/types";
 const items: Array<{
   href: string;
   label: string;
-  permission: Permission;
+  canAccess: (permissions: Permission[]) => boolean;
   icon: React.ComponentType<{ className?: string }>;
 }> = [
-  { href: "/dashboard", label: "Home", permission: "dashboard:read", icon: LayoutDashboard },
-  { href: "/pos", label: "POS", permission: "pos:write", icon: ShoppingCart },
-  { href: "/wholesale/orders", label: "Wholesale", permission: "wholesale:write", icon: FileText },
-  { href: "/inventory/products", label: "Stock", permission: "inventory:write", icon: Boxes },
-  { href: "/trace", label: "Trace", permission: "trace:read", icon: PackageSearch },
+  { href: "/dashboard", label: "Home", canAccess: (permissions) => hasPermission(permissions, "dashboard:read"), icon: LayoutDashboard },
+  { href: "/pos", label: "POS", canAccess: (permissions) => hasPermission(permissions, "pos:write"), icon: ShoppingCart },
+  { href: "/wholesale/orders", label: "Wholesale", canAccess: (permissions) => hasPermission(permissions, "wholesale:write"), icon: FileText },
+  { href: "/inventory/products", label: "Stock", canAccess: canViewInventory, icon: Boxes },
+  { href: "/trace", label: "Trace", canAccess: (permissions) => hasPermission(permissions, "trace:read"), icon: PackageSearch },
 ];
 
 export function MobileNav() {
   const pathname = usePathname();
   const { permissions } = useAuth();
-  const visibleItems = items.filter((item) => hasPermission(permissions, item.permission));
+  const visibleItems = items.filter((item) => item.canAccess(permissions));
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-emerald-900/10 bg-white px-2 py-2 lg:hidden">

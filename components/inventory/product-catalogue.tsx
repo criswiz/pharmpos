@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { createProduct, subscribeProducts } from "@/lib/services/inventory.service";
 import { productSchema, type ProductInput } from "@/lib/validation/product";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { canWriteProducts } from "@/lib/utils/rbac";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { InventoryNav } from "@/components/inventory/inventory-nav";
@@ -31,7 +32,7 @@ const defaults: ProductInput = {
 };
 
 export function ProductCatalogue() {
-  const { user, appUser, role } = useAuth();
+  const { user, appUser, role, permissions } = useAuth();
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
@@ -97,6 +98,7 @@ export function ProductCatalogue() {
       return matchesCategory && matchesSearch;
     });
   }, [category, products, search]);
+  const canAddProducts = canWriteProducts(permissions);
 
   return (
     <div className="space-y-5">
@@ -106,14 +108,16 @@ export function ProductCatalogue() {
           <h1 className="mt-1 text-2xl font-semibold text-emerald-950">Product Catalogue</h1>
           <p className="mt-2 text-sm text-zinc-600">Manage medicine identity, barcodes, packs, storage, and reorder thresholds.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setFormOpen(true)}
-          className="flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800"
-        >
-          <PackagePlus className="h-4 w-4" />
-          Add product
-        </button>
+        {canAddProducts ? (
+          <button
+            type="button"
+            onClick={() => setFormOpen(true)}
+            className="flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800"
+          >
+            <PackagePlus className="h-4 w-4" />
+            Add product
+          </button>
+        ) : null}
       </header>
 
       <InventoryNav />
@@ -194,7 +198,7 @@ export function ProductCatalogue() {
         ) : null}
       </section>
 
-      {formOpen ? (
+      {formOpen && canAddProducts ? (
         <ProductForm
           onClose={() => setFormOpen(false)}
           actor={user && appUser && role ? { uid: user.uid, name: appUser.name, role } : null}
